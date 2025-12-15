@@ -231,26 +231,6 @@ const TrackCanvas = ({ track, onSectorClick, selectedSector }) => {
           </div>
         )}
 
-        {/* Zoom indicator */}
-        {selectedSector && (
-          <div className="zoom-indicator">
-            <div className="zoom-icon">🔍</div>
-            <span>ANALYZING {selectedSector.label}</span>
-          </div>
-        )}
-
-        {/* Simulation controls */}
-        {selectedSector && (
-          <div className="simulation-controls">
-            <button
-              className={`sim-btn ${isSimulating ? 'stop' : 'start'}`}
-              onClick={isSimulating ? handleStopSimulation : handleStartSimulation}
-            >
-              {isSimulating ? '⏸ STOP' : '▶ START'} SIMULATION
-            </button>
-          </div>
-        )}
-
         {/* Viraj Numaraları - Dinamik pozisyonlama */}
         {trackPoints.length > 0 && track.corners.map((corner) => {
           const pos = getScreenPosition(corner.trackPosition);
