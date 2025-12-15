@@ -70,13 +70,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 80px 40px 120px 40px;
+  padding: 0;
 }
 
 .track-canvas {
   display: block;
+  width: 100% !important;
+  height: 100% !important;
   background: transparent;
-  image-rendering: crisp-edges;
 }
 
 /* Loading Overlay */
@@ -448,12 +449,10 @@
 /* Finish Line */
 .finish-line-marker {
   position: absolute;
-  top: 50%;
-  right: 5%;
-  transform: translateY(-50%);
   z-index: 50;
   filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.8));
   animation: finishLinePulse 3s infinite;
+  pointer-events: none;
 }
 
 @keyframes finishLinePulse {

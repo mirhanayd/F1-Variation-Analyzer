@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Monza Track Analysis</title>
+  <style>
+    body { background: #1a1a1a; padding: 20px; }
+    svg { background: #000; }
+    .point { fill: red; }
+    .point-label { fill: white; font-size: 8px; }
+    .track { stroke: #00E5FF; stroke-width: 3; fill: none; }
+  </style>
+</head>
+<body>
+  <h2 style="color: white;">Monza SVG Analysis</h2>
+  <svg id="trackSvg" width="800" height="400" viewBox="0 0 516.66 263.84">
+    <!-- Original track -->
+    <path class="track" d="m4.1168 29.337c0.31529 7.0558 4.5029 17.045 11.051 32.041 5.5664 12.748 11.227 26.92 12.581 31.494l2.4617 8.3161 4.9113 1.8458c3.6733 1.3807 4.9623 2.4052 5.1167 4.0668 1.4707 15.824 14.607 90.607 17.266 98.292 13.174 38.07 37.939 53.878 83.405 53.242 8.5475-0.11959 15.777-0.10051 16.066 0.0419 0.89783 0.44296 16.804-3.6907 25.946-6.7417 10.262-3.4247 11.317-3.2977 11.731 1.404 0.4861 5.5195-10.851 4.979 107.36 5.1105 18.222 0.0203 53.258 0.31975 77.858 0.66418l44.727 0.62532 26.813-3.3104c41.557-5.1328 54.488-12.178 59.87-32.614 2.5346-9.6255 1.5217-13.709-5.1803-20.862-4.7926-5.1156-7.924-5.7604-29.609-6.1076-10.622-0.17006-56.324-0.87618-101.56-1.5688-104.09-1.5937-99.307-1.2621-104.12-7.2232-5.3784-6.6565-14.936-9.4315-25.946-7.532-8.6364 1.4899-5.0705 3.9952-35.389-24.849-88.19-83.874-79.74-74.371-119-133.8-13.676-20.684-10.76-19.425-35.3-15.25-38.153 6.49-51.665 9.267-51.063 22.737z"/>
+    
+    <!-- Marker points will be added here -->
+  </svg>
+  
+  <div id="output" style="color: white; font-family: monospace; margin-top: 20px;"></div>
+  
+  <script>
+    // Sample points along the path
+    const svg = document.getElementById('trackSvg');
+    const path = svg.querySelector('path');
+    const output = document.getElementById('output');
+    
+    const totalLength = path.getTotalLength();
+    const numSamples = 100;
+    
+    let html = '<h3>Track Points (percent along path)</h3>';
+    
+    const keyPoints = [0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.0];
+    
+    keyPoints.forEach(percent => {
+      const point = path.getPointAtLength(totalLength * percent);
+      
+      // Add circle marker
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', point.x);
+      circle.setAttribute('cy', point.y);
+      circle.setAttribute('r', 5);
+      circle.setAttribute('fill', percent < 0.2 ? '#FF1E46' : percent < 0.55 ? '#00E5FF' : '#FFF01E');
+      svg.appendChild(circle);
+      
+      // Add label
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', point.x + 8);
+      text.setAttribute('y', point.y + 3);
+      text.setAttribute('fill', 'white');
+      text.setAttribute('font-size', '10');
+      text.textContent = (percent * 100).toFixed(0) + '%';
+      svg.appendChild(text);
+      
+      html += `<div>${(percent * 100).toFixed(0)}%: x=${point.x.toFixed(1)}, y=${point.y.toFixed(1)}</div>`;
+    });
+    
+    output.innerHTML = html;
+    
+    // Identify corners based on direction changes
+    html += '<h3>Suggested Corner Positions</h3>';
+    html += '<pre>';
+    html += 'Monza Track Layout Analysis:\n';
+    html += '- Start/Finish: 0% (top-left area)\n';
+    html += '- Straight down, then T1-T2 chicane around 5-12%\n';
+    html += '- Curva Grande (big right) around 18-25%\n';
+    html += '- Roggia chicane around 30-38%\n';
+    html += '- Lesmo 1 around 42%\n';
+    html += '- Lesmo 2 around 48%\n';
+    html += '- Ascari chicane around 60-72%\n';
+    html += '- Parabolica around 85-92%\n';
+    html += '</pre>';
+    output.innerHTML = html;
+  </script>
+</body>
+</html>

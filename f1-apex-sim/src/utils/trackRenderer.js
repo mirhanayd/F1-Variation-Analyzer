@@ -11,12 +11,12 @@ export class TrackRenderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.trackData = trackData;
-    
+
     // Track properties
     this.trackPoints = [];
     this.sectors = [];
     this.currentSector = null;
-    
+
     // Camera properties
     this.camera = {
       x: 0,
@@ -40,6 +40,9 @@ export class TrackRenderer {
     this.animationFrame = null;
     this.isAnimating = false;
 
+    // Callback for camera updates
+    this.onCameraUpdate = null;
+
     this.init();
   }
 
@@ -51,12 +54,14 @@ export class TrackRenderer {
       // Fetch SVG file
       const response = await fetch(this.trackData.svgPath);
       const svgText = await response.text();
-      
+
+      console.log('Fetched SVG for:', this.trackData.id);
+
       // Parse SVG
       const parser = new DOMParser();
       const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
       const pathElement = svgDoc.querySelector('path');
-      
+
       if (!pathElement) {
         console.error('No path element found in SVG');
         return;
@@ -64,14 +69,24 @@ export class TrackRenderer {
 
       // Get path data
       const pathString = pathElement.getAttribute('d');
+      console.log('Path string (first 100 chars):', pathString.substring(0, 100));
+
       const commands = SVGPathParser.parsePath(pathString);
-      
+      console.log('Parsed commands:', commands.length, commands.slice(0, 3));
+
       // Sample points along path
       this.trackPoints = SVGPathParser.samplePath(commands, 2000);
-      
+      console.log('Sampled points:', this.trackPoints.length);
+
+      if (this.trackPoints.length > 0) {
+        console.log('First point:', this.trackPoints[0]);
+        console.log('Last point:', this.trackPoints[this.trackPoints.length - 1]);
+        console.log('Point at 50%:', this.trackPoints[Math.floor(this.trackPoints.length / 2)]);
+      }
+
       // Divide into sectors
       this.sectors = SVGPathParser.dividePath(this.trackPoints, 3);
-      
+
       // Color sectors
       this.sectors.forEach((sector, i) => {
         sector.color = this.trackData.sectors[i].color;
@@ -80,13 +95,14 @@ export class TrackRenderer {
 
       // Set initial camera to view full track
       this.fitTrackToView();
-      
+
       // Start render loop
       this.startRenderLoop();
-      
+
       console.log('Track initialized:', {
         points: this.trackPoints.length,
-        sectors: this.sectors.length
+        sectors: this.sectors.length,
+        bbox: SVGPathParser.getBoundingBox(this.trackPoints)
       });
     } catch (error) {
       console.error('Failed to initialize track:', error);
@@ -103,19 +119,19 @@ export class TrackRenderer {
     // Get actual canvas display size (not pixel size)
     const canvasWidth = this.canvas.offsetWidth || this.canvas.width;
     const canvasHeight = this.canvas.offsetHeight || this.canvas.height;
-    
+
     const padding = 80;
     const scaleX = (canvasWidth - padding * 2) / bbox.width;
     const scaleY = (canvasHeight - padding * 2) / bbox.height;
-    
+
     this.camera.scale = Math.min(scaleX, scaleY) * 0.85;
     this.camera.x = canvasWidth / 2 - (bbox.centerX * this.camera.scale);
     this.camera.y = canvasHeight / 2 - (bbox.centerY * this.camera.scale);
-    
+
     this.camera.targetX = this.camera.x;
     this.camera.targetY = this.camera.y;
     this.camera.targetScale = this.camera.scale;
-    
+
     console.log('Track fitted:', {
       canvasSize: { width: canvasWidth, height: canvasHeight },
       bbox,
@@ -132,11 +148,11 @@ export class TrackRenderer {
 
     this.currentSector = sector;
     const bbox = sector.boundingBox;
-    
+
     // Get actual canvas display size
     const canvasWidth = this.canvas.offsetWidth || this.canvas.width;
     const canvasHeight = this.canvas.offsetHeight || this.canvas.height;
-    
+
     const padding = 100;
 
     // Calculate target scale
@@ -172,7 +188,7 @@ export class TrackRenderer {
   resetZoom() {
     this.currentSector = null;
     this.fitTrackToView();
-    
+
     gsap.to(this.camera, {
       targetX: this.camera.x,
       targetY: this.camera.y,
@@ -216,6 +232,11 @@ export class TrackRenderer {
       this.car.y = point.y;
       this.car.rotation = Math.atan2(nextPoint.y - point.y, nextPoint.x - point.x);
     }
+
+    // Notify external components about camera changes
+    if (this.onCameraUpdate) {
+      this.onCameraUpdate(this.camera);
+    }
   }
 
   /**
@@ -223,13 +244,15 @@ export class TrackRenderer {
    */
   draw() {
     const ctx = this.ctx;
-    
+    const canvasWidth = this.canvas.offsetWidth || this.canvas.width;
+    const canvasHeight = this.canvas.offsetHeight || this.canvas.height;
+
     // Clear canvas
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
     // Save context
     ctx.save();
-    
+
     // Apply camera transform
     ctx.translate(this.camera.x, this.camera.y);
     ctx.scale(this.camera.scale, this.camera.scale);
@@ -240,11 +263,11 @@ export class TrackRenderer {
       ctx.lineWidth = 10 / this.camera.scale;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      
+
       // Add glow effect
       ctx.shadowBlur = 20 / this.camera.scale;
       ctx.shadowColor = sector.color;
-      
+
       ctx.beginPath();
       sector.points.forEach((point, i) => {
         if (i === 0) {
@@ -254,7 +277,7 @@ export class TrackRenderer {
         }
       });
       ctx.stroke();
-      
+
       // Reset shadow
       ctx.shadowBlur = 0;
     });
@@ -265,7 +288,7 @@ export class TrackRenderer {
       ctx.lineWidth = 15 / this.camera.scale;
       ctx.shadowBlur = 30 / this.camera.scale;
       ctx.shadowColor = this.currentSector.color;
-      
+
       ctx.beginPath();
       this.currentSector.points.forEach((point, i) => {
         if (i === 0) {
@@ -283,12 +306,12 @@ export class TrackRenderer {
       ctx.save();
       ctx.translate(this.car.x, this.car.y);
       ctx.rotate(this.car.rotation);
-      
+
       // Draw car as triangle
       ctx.fillStyle = '#00E5FF';
       ctx.shadowBlur = 20 / this.camera.scale;
       ctx.shadowColor = '#00E5FF';
-      
+
       const size = 15 / this.camera.scale;
       ctx.beginPath();
       ctx.moveTo(size, 0);
@@ -296,7 +319,7 @@ export class TrackRenderer {
       ctx.lineTo(-size / 2, -size / 2);
       ctx.closePath();
       ctx.fill();
-      
+
       ctx.restore();
     }
 
