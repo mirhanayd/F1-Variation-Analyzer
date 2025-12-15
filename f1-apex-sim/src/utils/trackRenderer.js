@@ -172,13 +172,13 @@ export class TrackRenderer {
       targetY
     });
 
-    // Animate camera with GSAP
+    // Animate camera with GSAP - fast transition
     gsap.to(this.camera, {
       targetX,
       targetY,
       targetScale,
-      duration: 1.2,
-      ease: 'power2.inOut'
+      duration: 0.4,
+      ease: 'power2.out'
     });
   }
 
@@ -193,8 +193,8 @@ export class TrackRenderer {
       targetX: this.camera.x,
       targetY: this.camera.y,
       targetScale: this.camera.scale,
-      duration: 1,
-      ease: 'power2.inOut'
+      duration: 0.3,
+      ease: 'power2.out'
     });
   }
 
@@ -214,10 +214,10 @@ export class TrackRenderer {
    * Update camera and car position
    */
   update() {
-    // Smooth camera transition
-    this.camera.x += (this.camera.targetX - this.camera.x) * 0.1;
-    this.camera.y += (this.camera.targetY - this.camera.y) * 0.1;
-    this.camera.scale += (this.camera.targetScale - this.camera.scale) * 0.1;
+    // Fast camera transition
+    this.camera.x += (this.camera.targetX - this.camera.x) * 0.25;
+    this.camera.y += (this.camera.targetY - this.camera.y) * 0.25;
+    this.camera.scale += (this.camera.targetScale - this.camera.scale) * 0.25;
 
     // Update car position if animating
     if (this.isAnimating) {

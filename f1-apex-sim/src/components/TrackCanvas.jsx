@@ -197,7 +197,7 @@ const TrackCanvas = ({ track, onSectorClick, selectedSector }) => {
       }
     };
 
-    const interval = setInterval(updateCamera, 50);
+    const interval = setInterval(updateCamera, 16); // ~60fps for smooth transitions
     return () => clearInterval(interval);
   }, [track]);
 
