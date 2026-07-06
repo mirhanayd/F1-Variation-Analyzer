@@ -285,6 +285,22 @@ const CarRig = ({ result, runState, onRunComplete, onTelemetry }) => {
   );
 };
 
+// Frames the whole corner when a new section loads or a run resets.
+const CameraFraming = ({ center, size, runState }) => {
+  const { camera } = useThree();
+  const lastKeyRef = useRef(null);
+
+  useEffect(() => {
+    const key = `${center[0]}:${center[2]}:${size}`;
+    if (runState === 'running' || lastKeyRef.current === key) return;
+    lastKeyRef.current = key;
+    camera.position.set(center[0] - size * 0.3, size * 0.42, center[2] + size * 0.62);
+    camera.lookAt(center[0], 0, center[2]);
+  }, [camera, center, size, runState]);
+
+  return null;
+};
+
 const SceneContents = ({ result, runState, onRunComplete, onTelemetry }) => {
   const neutralPath = useMemo(() => buildNeutralPath(result.corner), [result.corner]);
 
@@ -324,9 +340,23 @@ const SceneContents = ({ result, runState, onRunComplete, onTelemetry }) => {
 
   const sceneCenter = useMemo(() => {
     const points = neutralPath.points;
-    const mid = points[Math.floor(points.length / 2)];
-    return [mid.x * SCALE, 0, -mid.y * SCALE];
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    points.forEach((point) => {
+      minX = Math.min(minX, point.x);
+      maxX = Math.max(maxX, point.x);
+      minY = Math.min(minY, point.y);
+      maxY = Math.max(maxY, point.y);
+    });
+    return [((minX + maxX) / 2) * SCALE, 0, -((minY + maxY) / 2) * SCALE];
   }, [neutralPath]);
+
+  const sceneSize = useMemo(
+    () => Math.min(150, Math.max(28, neutralPath.totalLength * SCALE * 0.85)),
+    [neutralPath],
+  );
 
   const orbitEnabled = runState !== 'running';
 
@@ -382,13 +412,16 @@ const SceneContents = ({ result, runState, onRunComplete, onTelemetry }) => {
         onTelemetry={onTelemetry}
       />
 
+      <CameraFraming center={sceneCenter} size={sceneSize} runState={runState} />
       <OrbitControls
         enabled={orbitEnabled}
         enablePan={false}
         maxPolarAngle={Math.PI / 2.1}
         minDistance={4}
-        maxDistance={120}
+        maxDistance={180}
         target={sceneCenter}
+        autoRotate={runState === 'setup'}
+        autoRotateSpeed={0.5}
       />
     </>
   );
