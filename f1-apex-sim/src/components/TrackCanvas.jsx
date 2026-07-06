@@ -238,6 +238,7 @@ const TrackCanvas = ({
         )}
       </div>
 
+      {track.sectors.length > 1 && (
       <div className="sector-selector" aria-label="Track sectors">
         {track.sectors.map((sector) => (
           <button
@@ -255,6 +256,7 @@ const TrackCanvas = ({
           </button>
         ))}
       </div>
+      )}
     </div>
   );
 };
