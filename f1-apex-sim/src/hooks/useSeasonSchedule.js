@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import dataManager from '../services/dataManager';
 import { normalizeSchedule } from '../features/schedule/scheduleModel';
 
@@ -10,6 +10,9 @@ export const useSeasonSchedule = (year = new Date().getUTCFullYear()) => {
     races: [],
     error: null,
   });
+  const [reloadIndex, setReloadIndex] = useState(0);
+
+  const reload = useCallback(() => setReloadIndex((index) => index + 1), []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -44,7 +47,7 @@ export const useSeasonSchedule = (year = new Date().getUTCFullYear()) => {
     loadSchedule();
 
     return () => controller.abort();
-  }, [year]);
+  }, [year, reloadIndex]);
 
   return useMemo(() => {
     const nowMs = Date.now();
@@ -58,6 +61,7 @@ export const useSeasonSchedule = (year = new Date().getUTCFullYear()) => {
       ...normalized,
       upcomingMeetings,
       nextMeeting: normalized.nextRound?.meeting ?? null,
+      reload,
     };
-  }, [state]);
+  }, [state, reload]);
 };

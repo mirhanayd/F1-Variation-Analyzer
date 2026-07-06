@@ -3,6 +3,12 @@ import PageShell from '../layout/PageShell';
 import { useCircuits } from '../hooks/useCircuits';
 import { CircuitGrid } from '../features/circuits/CircuitCards';
 
+const MODES = [
+  { id: 'all', label: 'All' },
+  { id: 'current', label: 'Current' },
+  { id: 'historic', label: 'Historic' },
+];
+
 const filterCircuits = (circuits, query, mode) => {
   const safeQuery = query.trim().toLowerCase();
 
@@ -20,18 +26,28 @@ const filterCircuits = (circuits, query, mode) => {
   });
 };
 
+const CircuitsSkeleton = () => (
+  <div className="skeleton-grid circuits" role="status" aria-label="Loading circuits">
+    {Array.from({ length: 8 }, (_, index) => (
+      <div key={index} className="skeleton skeleton-card" />
+    ))}
+  </div>
+);
+
 const CircuitsPage = () => {
-  const { circuits, activeCircuits, historicCircuits, status } = useCircuits();
+  const { circuits, activeCircuits, historicCircuits, status, refetch } = useCircuits();
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState('all');
 
   const filtered = useMemo(() => filterCircuits(circuits, query, mode), [circuits, mode, query]);
+  const showSkeleton = status === 'pending' && circuits.length === 0;
+  const showError = status === 'error' && circuits.length === 0;
 
   return (
     <PageShell
-      eyebrow="Circuit atlas"
+      eyebrow="Circuit library"
       title="Circuits"
-      description="Current calendar venues, historic circuits and curated APiEX-ready track data in one searchable garage."
+      description="Every Formula 1 venue in one place — the current calendar plus historic circuits like Istanbul Park, Imola and Sepang."
       actions={(
         <div className="catalog-summary">
           <span>{activeCircuits.length} current</span>
@@ -47,27 +63,42 @@ const CircuitsPage = () => {
           placeholder="Search circuit, country or city"
           aria-label="Search circuits"
         />
-        <div className="segmented-control">
-          {['all', 'current', 'historic'].map((item) => (
+        <div className="segmented-control" role="tablist" aria-label="Circuit filter">
+          {MODES.map((item) => (
             <button
-              key={item}
+              key={item.id}
               type="button"
-              className={mode === item ? 'active' : ''}
-              onClick={() => setMode(item)}
+              role="tab"
+              aria-selected={mode === item.id}
+              className={mode === item.id ? 'active' : ''}
+              onClick={() => setMode(item.id)}
             >
-              {item}
+              {item.label}
             </button>
           ))}
         </div>
       </section>
 
-      {status === 'loading' && <div className="page-state">Loading circuit registry...</div>}
-      {status === 'error' && <div className="page-state error">Circuit registry could not be loaded.</div>}
-      {status !== 'loading' && filtered.length === 0 && (
-        <div className="page-state">No circuits match this filter.</div>
+      {showSkeleton && <CircuitsSkeleton />}
+
+      {showError && (
+        <div className="page-state error">
+          <strong>The circuit registry could not be loaded.</strong>
+          <p>Curated circuits are still available — try refreshing for the full list.</p>
+          <button type="button" className="pw-button ghost" onClick={() => refetch()}>
+            Try again
+          </button>
+        </div>
       )}
 
-      <CircuitGrid circuits={filtered} />
+      {!showSkeleton && filtered.length === 0 && (
+        <div className="page-state">
+          <strong>No circuits match this filter.</strong>
+          <p>Try a different search term or switch back to “All”.</p>
+        </div>
+      )}
+
+      {filtered.length > 0 && <CircuitGrid circuits={filtered} />}
     </PageShell>
   );
 };

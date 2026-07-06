@@ -28,7 +28,7 @@ const normalizeLocations = (locationByDriver = {}) => Object.entries(locationByD
     return acc;
   }, {});
 
-export const useTelemetryReplay = (track) => {
+export const useTelemetryReplay = (track, { enabled = true, reloadKey = 0 } = {}) => {
   const [state, setState] = useState(emptyReplay);
   const [playheadMs, setPlayheadMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -36,7 +36,7 @@ export const useTelemetryReplay = (track) => {
   const isSupported = Boolean(track?.openF1);
 
   useEffect(() => {
-    if (!isSupported) {
+    if (!isSupported || !enabled) {
       return undefined;
     }
 
@@ -77,7 +77,7 @@ export const useTelemetryReplay = (track) => {
     loadReplay();
 
     return () => controller.abort();
-  }, [isSupported, track]);
+  }, [isSupported, enabled, reloadKey, track]);
 
   const processed = useMemo(() => {
     if (!state.package) {

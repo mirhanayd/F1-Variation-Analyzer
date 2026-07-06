@@ -57,6 +57,14 @@ class DataManager {
     });
   }
 
+  async getCircuitOutline(track, options = {}) {
+    if (!track.openF1) return null;
+
+    return this.getOrFetch(`outline_${track.id}`, () => openF1Api.getCircuitOutline(track.openF1, options), {
+      cacheTimeout: 24 * 60 * 60 * 1000,
+    });
+  }
+
   async getReplayPackage(track, options = {}) {
     if (!track.openF1) return null;
 

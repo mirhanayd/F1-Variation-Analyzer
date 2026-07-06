@@ -129,6 +129,22 @@ class OpenF1Service {
     return null;
   }
 
+  // Lightweight: resolves the latest completed race meeting and fetches only the
+  // circuit outline geometry (no per-driver location data).
+  async getCircuitOutline(openF1Config = {}, options = {}) {
+    const match = await this.findLatestCompletedRaceSession(openF1Config, options);
+    if (!match) return null;
+
+    const geometry = await this.getCircuitGeometry(match.meeting.circuit_info_url, options);
+    if (!geometry) return null;
+
+    return {
+      meeting: match.meeting,
+      session: match.session,
+      geometry,
+    };
+  }
+
   async getReplayPackage(openF1Config = {}, {
     driverLimit = 8,
     replayWindowMs = 2 * 60 * 1000,
