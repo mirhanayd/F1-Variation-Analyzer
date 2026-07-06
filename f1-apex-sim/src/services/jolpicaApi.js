@@ -28,6 +28,14 @@ class JolpicaService {
     return getRaces(data)[0] ?? null;
   }
 
+  async getCircuitRaceHistory(circuitId, options = {}) {
+    const data = await this.request(`circuits/${circuitId}/results.json`, {
+      limit: 100,
+    }, options);
+
+    return getRaces(data);
+  }
+
   async getQualifying(year, circuitId, options = {}) {
     const data = await this.request(`${year}/circuits/${circuitId}/qualifying.json`, {
       limit: 100,

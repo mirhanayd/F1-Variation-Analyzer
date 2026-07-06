@@ -1,39 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import dataManager from '../services/dataManager';
-
-const buildMeetingsWithSessions = ({ meetings = [], sessions = [] }, nowMs) => {
-  const sessionsByMeeting = sessions.reduce((acc, session) => {
-    const key = session.meeting_key;
-    if (!acc.has(key)) acc.set(key, []);
-    acc.get(key).push(session);
-    return acc;
-  }, new Map());
-
-  return meetings
-    .filter((meeting) => !meeting.is_cancelled && meeting.meeting_name !== 'Pre-Season Testing')
-    .map((meeting) => {
-      const meetingSessions = (sessionsByMeeting.get(meeting.meeting_key) ?? [])
-        .slice()
-        .sort((a, b) => Date.parse(a.date_start) - Date.parse(b.date_start));
-
-      const nextSession = meetingSessions.find((session) => Date.parse(session.date_end) > nowMs) ?? null;
-
-      return {
-        ...meeting,
-        sessions: meetingSessions,
-        nextSession,
-        isPast: Date.parse(meeting.date_end) < nowMs,
-        isCurrent: Date.parse(meeting.date_start) <= nowMs && Date.parse(meeting.date_end) >= nowMs,
-      };
-    })
-    .sort((a, b) => Date.parse(a.date_start) - Date.parse(b.date_start));
-};
+import { normalizeSchedule } from '../features/schedule/scheduleModel';
 
 export const useSeasonSchedule = (year = new Date().getUTCFullYear()) => {
   const [state, setState] = useState({
     status: 'idle',
     meetings: [],
     sessions: [],
+    races: [],
     error: null,
   });
 
@@ -50,6 +24,7 @@ export const useSeasonSchedule = (year = new Date().getUTCFullYear()) => {
             status: 'ready',
             meetings: data.meetings ?? [],
             sessions: data.sessions ?? [],
+            races: data.races ?? [],
             error: null,
           });
         }
@@ -59,6 +34,7 @@ export const useSeasonSchedule = (year = new Date().getUTCFullYear()) => {
             status: 'error',
             meetings: [],
             sessions: [],
+            races: [],
             error,
           });
         }
@@ -72,23 +48,16 @@ export const useSeasonSchedule = (year = new Date().getUTCFullYear()) => {
 
   return useMemo(() => {
     const nowMs = Date.now();
-    const meetings = buildMeetingsWithSessions(state, nowMs);
-    const upcomingMeetings = meetings.filter((meeting) => Date.parse(meeting.date_end) > nowMs);
-    const nextMeeting = upcomingMeetings[0] ?? null;
-    const allUpcomingSessions = meetings
-      .flatMap((meeting) => meeting.sessions.map((session) => ({
-        ...session,
-        meeting,
-      })))
-      .filter((session) => Date.parse(session.date_end) > nowMs)
-      .sort((a, b) => Date.parse(a.date_start) - Date.parse(b.date_start));
+    const normalized = normalizeSchedule(state, nowMs);
+    const upcomingMeetings = normalized.upcomingRounds
+      .map((round) => round.meeting)
+      .filter(Boolean);
 
     return {
       ...state,
-      meetings,
+      ...normalized,
       upcomingMeetings,
-      nextMeeting,
-      nextSession: allUpcomingSessions[0] ?? null,
+      nextMeeting: normalized.nextRound?.meeting ?? null,
     };
   }, [state]);
 };

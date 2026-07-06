@@ -33,16 +33,10 @@ export const useTelemetryReplay = (track) => {
   const [playheadMs, setPlayheadMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const lastFrameRef = useRef(null);
+  const isSupported = Boolean(track?.openF1);
 
   useEffect(() => {
-    if (!track?.openF1) {
-      setState({
-        status: 'unsupported',
-        package: null,
-        error: null,
-      });
-      setIsPlaying(false);
-      setPlayheadMs(0);
+    if (!isSupported) {
       return undefined;
     }
 
@@ -83,7 +77,7 @@ export const useTelemetryReplay = (track) => {
     loadReplay();
 
     return () => controller.abort();
-  }, [track]);
+  }, [isSupported, track]);
 
   const processed = useMemo(() => {
     if (!state.package) {
@@ -167,6 +161,26 @@ export const useTelemetryReplay = (track) => {
       })
       .filter(Boolean);
   }, [playheadMs, processed]);
+
+  if (!isSupported) {
+    return {
+      status: 'unsupported',
+      error: null,
+      meeting: null,
+      session: null,
+      circuitGeometry: null,
+      drivers: [],
+      positions: [],
+      telemetryBounds: null,
+      playheadMs: 0,
+      durationMs: 0,
+      isPlaying: false,
+      playbackSpeed: PLAYBACK_SPEED,
+      setPlayheadMs,
+      setIsPlaying,
+      togglePlaying: () => {},
+    };
+  }
 
   return {
     status: state.status,

@@ -25,13 +25,20 @@ class DataManager {
 
   async getSeasonSchedule(year, options = {}) {
     return this.getOrFetch(`season_schedule_${year}`, async () => {
-      const [meetings, sessions] = await Promise.all([
+      const [meetings, sessions, races] = await Promise.all([
         openF1Api.getMeetings({ year }, options),
         openF1Api.getSessions({ year }, options),
+        jolpicaApi.getRaceSchedule(year, options),
       ]);
 
-      return { year, meetings, sessions };
+      return { year, meetings, sessions, races };
     }, { cacheTimeout: 30 * 60 * 1000 });
+  }
+
+  async getAllCircuits(options = {}) {
+    return this.getOrFetch('all_circuits', () => jolpicaApi.getAllCircuits(options), {
+      cacheTimeout: 24 * 60 * 60 * 1000,
+    });
   }
 
   async getCircuitData(track, year = new Date().getUTCFullYear(), options = {}) {

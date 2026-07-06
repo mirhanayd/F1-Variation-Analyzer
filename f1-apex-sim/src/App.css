@@ -1,0 +1,429 @@
+@import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700;900&family=Orbitron:wght@500;700;900&display=swap');
+
+:root {
+  --bg-page: #05070a;
+  --bg-panel: rgba(8, 11, 16, 0.94);
+  --bg-panel-soft: rgba(255, 255, 255, 0.045);
+  --border-subtle: rgba(255, 255, 255, 0.11);
+  --border-strong: rgba(255, 30, 70, 0.45);
+  --f1-red: #ff1e46;
+  --neon-cyan: #00e5ff;
+  --neon-yellow: #fff01e;
+  --neon-green: #00ff41;
+  --text-primary: #ffffff;
+  --text-muted: #8a94a6;
+  --panel-shadow: 0 16px 50px rgba(0, 0, 0, 0.35);
+}
+
+body {
+  background:
+    linear-gradient(135deg, rgba(255, 30, 70, 0.09), transparent 32%),
+    linear-gradient(315deg, rgba(0, 229, 255, 0.08), transparent 36%),
+    var(--bg-page);
+  color: var(--text-primary);
+  font-family: 'Titillium Web', sans-serif;
+}
+
+.dashboard-container {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 430px);
+  grid-template-areas: "map panel";
+  gap: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 30, 70, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.035) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.track-selector {
+  position: fixed;
+  top: 24px;
+  right: 458px;
+  display: flex;
+  gap: 12px;
+  z-index: 30;
+}
+
+.track-btn {
+  min-height: 44px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.66);
+  color: #fff;
+  padding: 10px 22px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  backdrop-filter: blur(16px);
+  transition: border-color 160ms ease, color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.track-btn:hover,
+.track-btn:focus-visible {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  outline: none;
+  transform: translateY(-1px);
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.25);
+}
+
+.track-btn.active {
+  background: linear-gradient(135deg, var(--f1-red), #ff6b9d);
+  border-color: var(--f1-red);
+  box-shadow: 0 0 24px rgba(255, 30, 70, 0.42);
+}
+
+.map-section {
+  grid-area: map;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+.stats-panel {
+  grid-area: panel;
+  min-height: 100vh;
+  max-height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 32px 28px;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-strong);
+  box-shadow: var(--panel-shadow);
+  backdrop-filter: blur(24px);
+  position: relative;
+  z-index: 20;
+}
+
+.panel-section {
+  position: relative;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.panel-section:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.circuit-header {
+  border-bottom: 3px solid var(--f1-red);
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+}
+
+.circuit-header h1 {
+  margin: 0;
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(2rem, 5vw, 2.7rem);
+  line-height: 0.95;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 0 24px rgba(0, 229, 255, 0.35);
+}
+
+.sub-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  color: var(--f1-red);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.section-kicker {
+  margin-bottom: 12px;
+  color: var(--neon-cyan);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  min-height: 52px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.stat-row:last-of-type {
+  border-bottom: 0;
+}
+
+.stat-label {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #fff;
+  text-align: right;
+}
+
+.stat-value.compact {
+  font-size: 1rem;
+}
+
+.lap-record-box {
+  margin-top: 20px;
+  padding: 18px;
+  border-left: 4px solid var(--neon-yellow);
+  border-radius: 8px;
+  background: var(--bg-panel-soft);
+}
+
+.lap-record-title {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+
+.lap-record-time {
+  margin-top: 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.lap-record-driver {
+  margin-top: 4px;
+  color: var(--neon-yellow);
+  font-weight: 700;
+}
+
+.countdown-card h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.1;
+}
+
+.session-name {
+  margin: 6px 0 16px;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.countdown-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.countdown-grid div {
+  min-width: 0;
+  padding: 12px 6px;
+  border: 1px solid rgba(0, 229, 255, 0.24);
+  border-radius: 8px;
+  background: rgba(0, 229, 255, 0.055);
+  text-align: center;
+}
+
+.countdown-grid strong {
+  display: block;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.22rem;
+  color: #fff;
+}
+
+.countdown-grid span,
+.time-meta span,
+.schedule-item span,
+.telemetry-session span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.time-meta {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.schedule-list {
+  display: grid;
+  gap: 10px;
+}
+
+.schedule-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.schedule-item.current {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.12);
+}
+
+.schedule-item strong,
+.telemetry-session strong {
+  display: block;
+  line-height: 1.15;
+}
+
+.schedule-time {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+
+.telemetry-session {
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.replay-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.replay-controls button {
+  border: 1px solid var(--neon-green);
+  border-radius: 8px;
+  background: rgba(0, 255, 65, 0.08);
+  color: var(--neon-green);
+  padding: 8px 18px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.replay-clock {
+  font-family: 'Orbitron', sans-serif;
+  color: #fff;
+}
+
+.replay-range {
+  width: 100%;
+  margin-top: 12px;
+  accent-color: var(--neon-cyan);
+}
+
+.driver-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.driver-chip {
+  border: 1px solid var(--team-color);
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: #fff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.7rem;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--team-color), transparent 62%);
+}
+
+.muted-text,
+.error-text {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.error-text {
+  color: #ff8aa0;
+}
+
+@media (max-width: 1180px) {
+  .dashboard-container {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "map"
+      "panel";
+    overflow: visible;
+  }
+
+  .map-section {
+    min-height: 68vh;
+  }
+
+  .stats-panel {
+    min-height: auto;
+    max-height: none;
+    border-left: 0;
+    border-top: 1px solid var(--border-strong);
+  }
+
+  .track-selector {
+    right: 24px;
+  }
+}
+
+@media (max-width: 720px) {
+  .track-selector {
+    left: 16px;
+    right: 16px;
+    top: 16px;
+  }
+
+  .track-btn {
+    flex: 1;
+    padding-inline: 12px;
+  }
+
+  .map-section {
+    min-height: 74vh;
+  }
+
+  .stats-panel {
+    padding: 24px 18px;
+  }
+
+  .sub-title,
+  .schedule-item {
+    grid-template-columns: 1fr;
+  }
+
+  .sub-title {
+    display: grid;
+  }
+
+  .schedule-time {
+    text-align: left;
+  }
+}

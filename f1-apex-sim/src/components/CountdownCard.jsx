@@ -1,12 +1,12 @@
 import { useCountdown } from '../hooks/useCountdown';
 import { formatDateTime, formatGmtOffset, formatUtcDateTime, padTime } from '../utils/dateTime';
 
-const CountdownCard = ({ session }) => {
+const CountdownCard = ({ session, compact = false }) => {
   const countdown = useCountdown(session?.date_start);
 
   if (!session) {
     return (
-      <section className="panel-section countdown-card">
+      <section className={`panel-section countdown-card ${compact ? 'compact' : ''}`}>
         <div className="section-kicker">Next Session</div>
         <p className="muted-text">No upcoming session found.</p>
       </section>
@@ -16,7 +16,7 @@ const CountdownCard = ({ session }) => {
   const { days, hours, minutes, seconds } = countdown.parts;
 
   return (
-    <section className="panel-section countdown-card">
+    <section className={`panel-section countdown-card ${compact ? 'compact' : ''}`}>
       <div className="section-kicker">Next Session</div>
       <h2>{session.meeting?.meeting_name ?? session.circuit_short_name}</h2>
       <p className="session-name">{session.session_name}</p>
