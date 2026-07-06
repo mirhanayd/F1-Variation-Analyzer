@@ -432,7 +432,7 @@ const SimulationScene = ({ result, runState, onRunComplete, onTelemetry }) => (
     shadows
     dpr={[1, 1.8]}
     camera={{ position: [-6, 9, 18], fov: 46 }}
-    style={{ touchAction: 'none' }}
+    style={{ position: 'absolute', inset: 0, touchAction: 'none' }}
   >
     <SceneContents
       result={result}
