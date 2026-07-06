@@ -1,353 +1,177 @@
-/**
- * Canvas Track Renderer
- * Renders F1 track with sectors, car simulation, and camera control
- */
-
-import { SVGPathParser } from './svgPathParser';
 import gsap from 'gsap';
+import { getBoundingBox, slicePointsByRange } from './trackGeometry';
+
+const buildSectors = (trackData, geometry) => trackData.sectors.map((sector, index) => {
+  const points = slicePointsByRange(geometry.points, sector.pathRange ?? {
+    start: index / trackData.sectors.length,
+    end: (index + 1) / trackData.sectors.length,
+  });
+
+  return {
+    ...sector,
+    index,
+    points,
+    boundingBox: getBoundingBox(points),
+  };
+});
 
 export class TrackRenderer {
-  constructor(canvas, trackData) {
+  constructor(canvas, trackData, geometry) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.trackData = trackData;
+    this.geometry = geometry;
+    this.sectors = buildSectors(trackData, geometry);
+    this.currentSectorId = null;
+    this.animationFrame = null;
+    this.cssSize = { width: 0, height: 0 };
+    this.onCameraUpdate = null;
 
-    // Track properties
-    this.trackPoints = [];
-    this.sectors = [];
-    this.currentSector = null;
-
-    // Camera properties
     this.camera = {
       x: 0,
       y: 0,
       scale: 1,
       targetX: 0,
       targetY: 0,
-      targetScale: 1
+      targetScale: 1,
     };
 
-    // Car properties
-    this.car = {
-      position: 0, // 0-1 along the track
-      x: 0,
-      y: 0,
-      speed: 0,
-      rotation: 0
-    };
-
-    // Animation
-    this.animationFrame = null;
-    this.isAnimating = false;
-
-    // Callback for camera updates
-    this.onCameraUpdate = null;
-
-    this.init();
+    this.fitTrackToView();
+    this.startRenderLoop();
   }
 
-  /**
-   * Initialize track from SVG
-   */
-  async init() {
-    try {
-      // Fetch SVG file
-      const response = await fetch(this.trackData.svgPath);
-      const svgText = await response.text();
+  resize(width, height, dpr = window.devicePixelRatio || 1) {
+    if (!width || !height) return;
 
-      console.log('Fetched SVG for:', this.trackData.id);
+    this.cssSize = { width, height };
+    this.canvas.width = Math.round(width * dpr);
+    this.canvas.height = Math.round(height * dpr);
+    this.canvas.style.width = `${width}px`;
+    this.canvas.style.height = `${height}px`;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.fitTrackToView();
+  }
 
-      // Parse SVG
-      const parser = new DOMParser();
-      const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-      const pathElement = svgDoc.querySelector('path');
+  fitTrackToView() {
+    const bbox = this.geometry?.bbox;
+    if (!bbox) return;
 
-      if (!pathElement) {
-        console.error('No path element found in SVG');
-        return;
-      }
+    const canvasWidth = this.cssSize.width || this.canvas.offsetWidth || this.canvas.width;
+    const canvasHeight = this.cssSize.height || this.canvas.offsetHeight || this.canvas.height;
+    const padding = Math.min(90, Math.max(36, Math.min(canvasWidth, canvasHeight) * 0.12));
+    const scaleX = (canvasWidth - padding * 2) / bbox.width;
+    const scaleY = (canvasHeight - padding * 2) / bbox.height;
+    const targetScale = Math.min(scaleX, scaleY) * 0.92;
 
-      // Get path data
-      const pathString = pathElement.getAttribute('d');
-      console.log('Path string (first 100 chars):', pathString.substring(0, 100));
+    this.camera.targetScale = targetScale;
+    this.camera.targetX = canvasWidth / 2 - bbox.centerX * targetScale;
+    this.camera.targetY = canvasHeight / 2 - bbox.centerY * targetScale;
 
-      const commands = SVGPathParser.parsePath(pathString);
-      console.log('Parsed commands:', commands.length, commands.slice(0, 3));
-
-      // Sample points along path
-      this.trackPoints = SVGPathParser.samplePath(commands, 2000);
-      console.log('Sampled points:', this.trackPoints.length);
-
-      if (this.trackPoints.length > 0) {
-        console.log('First point:', this.trackPoints[0]);
-        console.log('Last point:', this.trackPoints[this.trackPoints.length - 1]);
-        console.log('Point at 50%:', this.trackPoints[Math.floor(this.trackPoints.length / 2)]);
-      }
-
-      // Divide into sectors
-      this.sectors = SVGPathParser.dividePath(this.trackPoints, 3);
-
-      // Color sectors
-      this.sectors.forEach((sector, i) => {
-        sector.color = this.trackData.sectors[i].color;
-        sector.label = this.trackData.sectors[i].label;
-      });
-
-      // Set initial camera to view full track
-      this.fitTrackToView();
-
-      // Start render loop
-      this.startRenderLoop();
-
-      console.log('Track initialized:', {
-        points: this.trackPoints.length,
-        sectors: this.sectors.length,
-        bbox: SVGPathParser.getBoundingBox(this.trackPoints)
-      });
-    } catch (error) {
-      console.error('Failed to initialize track:', error);
+    if (!this.animationFrame) {
+      this.camera.scale = this.camera.targetScale;
+      this.camera.x = this.camera.targetX;
+      this.camera.y = this.camera.targetY;
     }
   }
 
-  /**
-   * Fit track to canvas view
-   */
-  fitTrackToView() {
-    const bbox = SVGPathParser.getBoundingBox(this.trackPoints);
-    if (!bbox) return;
-
-    // Get actual canvas display size (not pixel size)
-    const canvasWidth = this.canvas.offsetWidth || this.canvas.width;
-    const canvasHeight = this.canvas.offsetHeight || this.canvas.height;
-
-    const padding = 80;
-    const scaleX = (canvasWidth - padding * 2) / bbox.width;
-    const scaleY = (canvasHeight - padding * 2) / bbox.height;
-
-    this.camera.scale = Math.min(scaleX, scaleY) * 0.85;
-    this.camera.x = canvasWidth / 2 - (bbox.centerX * this.camera.scale);
-    this.camera.y = canvasHeight / 2 - (bbox.centerY * this.camera.scale);
-
-    this.camera.targetX = this.camera.x;
-    this.camera.targetY = this.camera.y;
-    this.camera.targetScale = this.camera.scale;
-
-    console.log('Track fitted:', {
-      canvasSize: { width: canvasWidth, height: canvasHeight },
-      bbox,
-      camera: this.camera
-    });
-  }
-
-  /**
-   * Zoom to specific sector
-   */
   zoomToSector(sectorId) {
-    const sector = this.sectors.find(s => s.id === sectorId);
-    if (!sector || !sector.boundingBox) return;
+    const sector = this.sectors.find((item) => item.id === sectorId);
+    if (!sector?.boundingBox) return;
 
-    this.currentSector = sector;
+    this.currentSectorId = sectorId;
     const bbox = sector.boundingBox;
-
-    // Get actual canvas display size
-    const canvasWidth = this.canvas.offsetWidth || this.canvas.width;
-    const canvasHeight = this.canvas.offsetHeight || this.canvas.height;
-
-    const padding = 100;
-
-    // Calculate target scale
+    const canvasWidth = this.cssSize.width || this.canvas.offsetWidth || this.canvas.width;
+    const canvasHeight = this.cssSize.height || this.canvas.offsetHeight || this.canvas.height;
+    const padding = Math.min(110, Math.max(44, Math.min(canvasWidth, canvasHeight) * 0.16));
     const scaleX = (canvasWidth - padding * 2) / bbox.width;
     const scaleY = (canvasHeight - padding * 2) / bbox.height;
-    const targetScale = Math.min(scaleX, scaleY) * 0.75;
+    const targetScale = Math.min(scaleX, scaleY) * 0.78;
 
-    // Calculate target position
-    const targetX = canvasWidth / 2 - (bbox.centerX * targetScale);
-    const targetY = canvasHeight / 2 - (bbox.centerY * targetScale);
-
-    console.log('Zooming to sector:', {
-      sectorId,
-      bbox,
-      targetScale,
-      targetX,
-      targetY
-    });
-
-    // Animate camera with GSAP - fast transition
     gsap.to(this.camera, {
-      targetX,
-      targetY,
+      targetX: canvasWidth / 2 - bbox.centerX * targetScale,
+      targetY: canvasHeight / 2 - bbox.centerY * targetScale,
       targetScale,
-      duration: 0.4,
-      ease: 'power2.out'
+      duration: 0.35,
+      ease: 'power2.out',
     });
   }
 
-  /**
-   * Reset zoom to full track view
-   */
   resetZoom() {
-    this.currentSector = null;
+    this.currentSectorId = null;
     this.fitTrackToView();
-
-    gsap.to(this.camera, {
-      targetX: this.camera.x,
-      targetY: this.camera.y,
-      targetScale: this.camera.scale,
-      duration: 0.3,
-      ease: 'power2.out'
-    });
   }
 
-  /**
-   * Start render loop
-   */
   startRenderLoop() {
     const render = () => {
       this.update();
       this.draw();
-      this.animationFrame = requestAnimationFrame(render);
+      this.animationFrame = window.requestAnimationFrame(render);
     };
+
     render();
   }
 
-  /**
-   * Update camera and car position
-   */
   update() {
-    // Fast camera transition
-    this.camera.x += (this.camera.targetX - this.camera.x) * 0.25;
-    this.camera.y += (this.camera.targetY - this.camera.y) * 0.25;
-    this.camera.scale += (this.camera.targetScale - this.camera.scale) * 0.25;
+    this.camera.x += (this.camera.targetX - this.camera.x) * 0.22;
+    this.camera.y += (this.camera.targetY - this.camera.y) * 0.22;
+    this.camera.scale += (this.camera.targetScale - this.camera.scale) * 0.22;
 
-    // Update car position if animating
-    if (this.isAnimating) {
-      this.car.position += 0.001; // Adjust speed
-      if (this.car.position > 1) this.car.position = 0;
-
-      const pointIndex = Math.floor(this.car.position * (this.trackPoints.length - 1));
-      const point = this.trackPoints[pointIndex];
-      const nextPoint = this.trackPoints[Math.min(pointIndex + 1, this.trackPoints.length - 1)];
-
-      this.car.x = point.x;
-      this.car.y = point.y;
-      this.car.rotation = Math.atan2(nextPoint.y - point.y, nextPoint.x - point.x);
-    }
-
-    // Notify external components about camera changes
-    if (this.onCameraUpdate) {
-      this.onCameraUpdate(this.camera);
-    }
+    this.onCameraUpdate?.({
+      x: this.camera.x,
+      y: this.camera.y,
+      scale: this.camera.scale,
+    });
   }
 
-  /**
-   * Draw track on canvas
-   */
+  drawTrackSegment(points, color, width, glow) {
+    if (!points.length) return;
+
+    const ctx = this.ctx;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width / this.camera.scale;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.shadowBlur = glow / this.camera.scale;
+    ctx.shadowColor = color;
+
+    ctx.beginPath();
+    points.forEach((point, index) => {
+      if (index === 0) {
+        ctx.moveTo(point.x, point.y);
+      } else {
+        ctx.lineTo(point.x, point.y);
+      }
+    });
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
   draw() {
     const ctx = this.ctx;
-    const canvasWidth = this.canvas.offsetWidth || this.canvas.width;
-    const canvasHeight = this.canvas.offsetHeight || this.canvas.height;
+    const width = this.cssSize.width || this.canvas.offsetWidth || this.canvas.width;
+    const height = this.cssSize.height || this.canvas.offsetHeight || this.canvas.height;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-    // Save context
+    ctx.clearRect(0, 0, width, height);
     ctx.save();
-
-    // Apply camera transform
     ctx.translate(this.camera.x, this.camera.y);
     ctx.scale(this.camera.scale, this.camera.scale);
 
-    // Draw track (sector by sector with colors)
-    this.sectors.forEach(sector => {
-      ctx.strokeStyle = sector.color;
-      ctx.lineWidth = 10 / this.camera.scale;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      // Add glow effect
-      ctx.shadowBlur = 20 / this.camera.scale;
-      ctx.shadowColor = sector.color;
-
-      ctx.beginPath();
-      sector.points.forEach((point, i) => {
-        if (i === 0) {
-          ctx.moveTo(point.x, point.y);
-        } else {
-          ctx.lineTo(point.x, point.y);
-        }
-      });
-      ctx.stroke();
-
-      // Reset shadow
-      ctx.shadowBlur = 0;
+    this.sectors.forEach((sector) => {
+      this.drawTrackSegment(sector.points, sector.color, 10, 18);
     });
 
-    // Highlight current sector
-    if (this.currentSector) {
-      ctx.strokeStyle = this.currentSector.color;
-      ctx.lineWidth = 15 / this.camera.scale;
-      ctx.shadowBlur = 30 / this.camera.scale;
-      ctx.shadowColor = this.currentSector.color;
-
-      ctx.beginPath();
-      this.currentSector.points.forEach((point, i) => {
-        if (i === 0) {
-          ctx.moveTo(point.x, point.y);
-        } else {
-          ctx.lineTo(point.x, point.y);
-        }
-      });
-      ctx.stroke();
-      ctx.shadowBlur = 0;
+    const activeSector = this.sectors.find((sector) => sector.id === this.currentSectorId);
+    if (activeSector) {
+      this.drawTrackSegment(activeSector.points, activeSector.color, 16, 30);
     }
 
-    // Draw car if animating
-    if (this.isAnimating && this.car.x && this.car.y) {
-      ctx.save();
-      ctx.translate(this.car.x, this.car.y);
-      ctx.rotate(this.car.rotation);
-
-      // Draw car as triangle
-      ctx.fillStyle = '#00E5FF';
-      ctx.shadowBlur = 20 / this.camera.scale;
-      ctx.shadowColor = '#00E5FF';
-
-      const size = 15 / this.camera.scale;
-      ctx.beginPath();
-      ctx.moveTo(size, 0);
-      ctx.lineTo(-size / 2, size / 2);
-      ctx.lineTo(-size / 2, -size / 2);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.restore();
-    }
-
-    // Restore context
     ctx.restore();
   }
 
-  /**
-   * Start car animation
-   */
-  startCarAnimation() {
-    this.isAnimating = true;
-    this.car.position = 0;
-  }
-
-  /**
-   * Stop car animation
-   */
-  stopCarAnimation() {
-    this.isAnimating = false;
-  }
-
-  /**
-   * Cleanup
-   */
   destroy() {
+    gsap.killTweensOf(this.camera);
     if (this.animationFrame) {
-      cancelAnimationFrame(this.animationFrame);
+      window.cancelAnimationFrame(this.animationFrame);
     }
   }
 }
