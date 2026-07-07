@@ -156,16 +156,17 @@ export const getDefaultParamsForCorner = (corner) => {
     steeringAngle: idealSteeringForRadius(corner.radius),
   }));
   const entry = clamp(Math.round(kmh(Math.min(V_MAX, vLimit + ms(150)))), 160, 340);
-  const brakeDistance = ((ms(entry) ** 2 - vLimit ** 2) / (2 * BRAKE_DECEL * 0.82)) * 1.12;
+  // Matches the driver model's braking decel (0.92 * BRAKE_DECEL) with a small margin.
+  const brakeDistance = ((ms(entry) ** 2 - vLimit ** 2) / (2 * BRAKE_DECEL * 0.92)) * 1.08 + 6;
 
   return {
     entrySpeed: entry,
-    brakingPoint: clamp(Math.round(brakeDistance + 12), PARAMETER_LIMITS.brakingPoint.min, Math.min(PARAMETER_LIMITS.brakingPoint.max, corner.entryLength - 20)),
+    brakingPoint: clamp(Math.round(brakeDistance), PARAMETER_LIMITS.brakingPoint.min, Math.min(PARAMETER_LIMITS.brakingPoint.max, corner.entryLength - 20)),
     apexBias: 55,
     steeringAngle: Math.round(idealSteeringForRadius(corner.radius)),
     throttle: 88,
     racingLine: 60,
-    exitSpeed: clamp(Math.round(kmh(vLimit) + 90), 160, 350),
+    exitSpeed: clamp(Math.round(kmh(vLimit) + 220), 220, 350),
   };
 };
 
@@ -208,6 +209,14 @@ const solveProfile = (corner, params, path) => {
   const throttleScale = params.throttle / 100;
   const exitCap = ms(params.exitSpeed);
 
+  // The speed the driver brakes toward: the slowest point of the corner
+  // between turn-in and the chosen apex.
+  const arcStartIndex = findIndexAtDistance(points, path.arcStart);
+  let vCornerTarget = V_MAX;
+  for (let i = arcStartIndex; i <= Math.min(apexIndex, n - 1); i += 1) {
+    vCornerTarget = Math.min(vCornerTarget, vLimit[i]);
+  }
+
   const v = new Float64Array(n);
   const t = new Float64Array(n);
   v[0] = Math.min(ms(params.entrySpeed), envelope[0]);
@@ -225,8 +234,11 @@ const solveProfile = (corner, params, path) => {
     const pastApex = points[i].s >= apexDistance;
 
     let next;
-    if (inBrakeZone && current > vLimit[Math.min(i + 1, n - 1)]) {
-      next = Math.sqrt(Math.max(current ** 2 - 2 * BRAKE_DECEL * 0.92 * ds, 0));
+    if (inBrakeZone && current > vCornerTarget + 0.05) {
+      next = Math.max(
+        Math.sqrt(Math.max(current ** 2 - 2 * BRAKE_DECEL * 0.92 * ds, 0)),
+        vCornerTarget,
+      );
       peakBrakeG = Math.max(peakBrakeG, (BRAKE_DECEL * 0.92) / G);
     } else if (pastApex || (!inBrakeZone && points[i].curvature === 0)) {
       const accel = Math.min(TRACTION_ACCEL, (POWER_ACCEL / Math.max(current, 12)) * throttleScale)
@@ -238,10 +250,11 @@ const solveProfile = (corner, params, path) => {
       next = current;
     }
 
-    // Cornering limit — carrying too much speed scrubs and runs wide.
+    // Cornering limit. Carrying too much speed INTO the corner scrubs and runs
+    // wide; on exit the driver simply feathers the throttle, so clamp silently.
     const limit = vLimit[i + 1];
     if (next > limit) {
-      if (next > limit * 1.04 && points[i + 1].curvature > 0) {
+      if (!pastApex && next > limit * 1.04 && points[i + 1].curvature > 0) {
         ranWide = true;
         scrubTime += ((next - limit) / limit) * 0.6;
       }
@@ -256,9 +269,15 @@ const solveProfile = (corner, params, path) => {
     t[i + 1] = t[i] + ds / Math.max((current + next) / 2, 4);
   }
 
-  // Braking much earlier than needed leaves obvious lap time on the table.
-  const arcIndex = findIndexAtDistance(points, path.arcStart);
-  if (v[arcIndex] < vLimit[arcIndex] * 0.86) overSlowed = true;
+  // Braking much earlier than needed leaves obvious lap time on the table:
+  // flag runs that crawl at corner speed for a long stretch before turn-in.
+  for (let i = 0; i < n; i += 1) {
+    if (points[i].s >= path.arcStart) break;
+    if (v[i] <= vCornerTarget + 0.1) {
+      if (path.arcStart - points[i].s > 55) overSlowed = true;
+      break;
+    }
+  }
 
   return {
     v,
@@ -277,19 +296,14 @@ const solveProfile = (corner, params, path) => {
   };
 };
 
-// The reference "perfect" run: ideal setup for this corner geometry.
-const solveOptimalTime = (corner) => {
-  const params = {
-    ...getDefaultParamsForCorner(corner),
-    apexBias: 55,
-    throttle: 100,
+// The reference "perfect" run for this corner: same entry speed as the driver,
+// but ideal line, perfect last-moment braking and full throttle on exit —
+// so the delta measures corner execution, not straight-line speed choice.
+const solveOptimalTime = (corner, entrySpeedKmh) => {
+  const path = buildCornerPath(corner, {
     racingLine: 72,
-    exitSpeed: PARAMETER_LIMITS.exitSpeed.max,
-    entrySpeed: PARAMETER_LIMITS.entrySpeed.max,
-  };
-  params.steeringAngle = idealSteeringForRadius(corner.radius);
-
-  const path = buildCornerPath(corner, params);
+    steeringAngle: idealSteeringForRadius(corner.radius),
+  });
   const { points } = path;
   const n = points.length;
 
@@ -307,14 +321,16 @@ const solveOptimalTime = (corner) => {
     envelope[i] = Math.min(vLimit[i], Math.sqrt(envelope[i + 1] ** 2 + 2 * BRAKE_DECEL * ds));
   }
 
+  const entryCap = ms(entrySpeedKmh);
   const v = new Float64Array(n);
-  v[0] = Math.min(ms(params.entrySpeed), envelope[0]);
+  v[0] = Math.min(entryCap, envelope[0]);
   let time = 0;
   for (let i = 0; i < n - 1; i += 1) {
     const ds = points[i + 1].s - points[i].s;
     const accel = Math.min(TRACTION_ACCEL, POWER_ACCEL / Math.max(v[i], 12)) - DRAG_K * v[i] ** 2;
     let next = Math.sqrt(Math.max(v[i] ** 2 + 2 * Math.max(accel, 0) * ds, 1));
     next = Math.min(next, envelope[i + 1]);
+    if (points[i + 1].zone === 'entry') next = Math.min(next, entryCap);
     v[i + 1] = next;
     time += ds / Math.max((v[i] + next) / 2, 4);
   }
@@ -345,7 +361,7 @@ export const calculateSimulation = (corner, rawParams) => {
 
   const path = buildCornerPath(corner, params);
   const profile = solveProfile(corner, params, path);
-  const optimalTime = solveOptimalTime(corner);
+  const optimalTime = solveOptimalTime(corner, params.entrySpeed);
   const delta = profile.totalTime - optimalTime;
 
   const { points } = path;
