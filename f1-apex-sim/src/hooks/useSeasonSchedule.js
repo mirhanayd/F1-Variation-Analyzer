@@ -9,6 +9,7 @@ export const useSeasonSchedule = (year = new Date().getUTCFullYear()) => {
     sessions: [],
     races: [],
     error: null,
+    loadedAtMs: 0,
   });
   const [reloadIndex, setReloadIndex] = useState(0);
 
@@ -29,6 +30,7 @@ export const useSeasonSchedule = (year = new Date().getUTCFullYear()) => {
             sessions: data.sessions ?? [],
             races: data.races ?? [],
             error: null,
+            loadedAtMs: Date.now(),
           });
         }
       } catch (error) {
@@ -39,6 +41,7 @@ export const useSeasonSchedule = (year = new Date().getUTCFullYear()) => {
             sessions: [],
             races: [],
             error,
+            loadedAtMs: Date.now(),
           });
         }
       }
@@ -50,7 +53,9 @@ export const useSeasonSchedule = (year = new Date().getUTCFullYear()) => {
   }, [year, reloadIndex]);
 
   return useMemo(() => {
-    const nowMs = Date.now();
+    // Round statuses are computed against the fetch time — plenty accurate for
+    // a schedule whose granularity is whole race weekends.
+    const nowMs = state.loadedAtMs;
     const normalized = normalizeSchedule(state, nowMs);
     const upcomingMeetings = normalized.upcomingRounds
       .map((round) => round.meeting)

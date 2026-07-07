@@ -9,25 +9,11 @@ const initialState = {
 
 export const useTrackGeometry = (track, geometryOverride = null) => {
   const [state, setState] = useState(initialState);
+  const hasOverride = Boolean(geometryOverride?.points?.length);
+  const svgPath = track?.svgPath ?? null;
 
   useEffect(() => {
-    if (geometryOverride?.points?.length) {
-      setState({
-        status: 'ready',
-        geometry: geometryOverride,
-        error: null,
-      });
-      return undefined;
-    }
-
-    if (!track?.svgPath) {
-      setState({
-        status: 'error',
-        geometry: null,
-        error: new Error('Track SVG path is missing'),
-      });
-      return undefined;
-    }
+    if (hasOverride || !svgPath) return undefined;
 
     const controller = new AbortController();
 
@@ -35,7 +21,7 @@ export const useTrackGeometry = (track, geometryOverride = null) => {
       setState({ status: 'loading', geometry: null, error: null });
 
       try {
-        const response = await fetch(track.svgPath, { signal: controller.signal });
+        const response = await fetch(svgPath, { signal: controller.signal });
         if (!response.ok) {
           throw new Error(`Could not load track SVG (${response.status})`);
         }
@@ -56,7 +42,20 @@ export const useTrackGeometry = (track, geometryOverride = null) => {
     loadGeometry();
 
     return () => controller.abort();
-  }, [geometryOverride, track?.svgPath]);
+  }, [hasOverride, svgPath]);
+
+  // Live geometry (e.g. an OpenF1 outline) wins over anything fetched.
+  if (hasOverride) {
+    return { status: 'ready', geometry: geometryOverride, error: null };
+  }
+
+  if (!svgPath) {
+    return {
+      status: 'error',
+      geometry: null,
+      error: new Error('Track geometry is not available'),
+    };
+  }
 
   return state;
 };
