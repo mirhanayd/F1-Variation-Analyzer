@@ -1,0 +1,11 @@
+{
+  "appId": "com.pitwall.app",
+  "appName": "PITWALL",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

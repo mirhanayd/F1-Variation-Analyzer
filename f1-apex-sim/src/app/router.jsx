@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, createHashRouter } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import AppLayout from '../layout/AppLayout';
 
 const HomeSchedulePage = lazy(() => import('../pages/HomeSchedulePage'));
@@ -21,7 +22,11 @@ const withPageFallback = (element) => (
   </Suspense>
 );
 
-export const router = createBrowserRouter([
+// Hash routing inside the native WebView survives reloads at any route;
+// the web keeps clean history-API URLs.
+const createRouter = Capacitor.isNativePlatform() ? createHashRouter : createBrowserRouter;
+
+export const router = createRouter([
   {
     path: '/',
     element: <AppLayout />,
