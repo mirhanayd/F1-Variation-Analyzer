@@ -208,11 +208,11 @@ const CircuitDetailPage = () => {
   });
   const historyQuery = useCircuitHistory(circuit?.id);
 
-  const canSimulateFullTrack = circuit ? hasRealOutline(circuit.id) : false;
   const simulationPoints = useMemo(
-    () => (canSimulateFullTrack ? getOutlineSamplePoints(circuit.id) : null),
-    [canSimulateFullTrack, circuit?.id],
+    () => (circuit && hasRealOutline(circuit.id) ? getOutlineSamplePoints(circuit.id) : null),
+    [circuit],
   );
+  const canSimulateFullTrack = Boolean(simulationPoints);
 
   if (!circuit && isLoading) {
     return (
