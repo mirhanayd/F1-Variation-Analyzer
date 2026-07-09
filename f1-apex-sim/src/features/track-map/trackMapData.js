@@ -1,5 +1,9 @@
+import { getCircuitSections } from '../../data/circuitSections';
+
 export const createTrackMapData = (circuit) => {
   if (circuit?.mapData) return circuit.mapData;
+
+  const sections = getCircuitSections(circuit);
 
   return {
     id: circuit.id,
@@ -15,16 +19,14 @@ export const createTrackMapData = (circuit) => {
       laps: circuit.stats?.laps ?? 'TBA',
       lapRecord: circuit.stats?.lapRecord ?? { time: 'TBA', driver: 'Data pending' },
     },
-    sectors: [
-      {
-        id: 'sector1',
-        name: 'Full Circuit',
-        color: '#00E5FF',
-        label: 'SECTOR 1',
-        corners: [],
-        pathRange: { start: 0, end: 1 },
-      },
-    ],
+    sectors: sections.sectors.map((sector) => ({
+      id: sector.id,
+      name: sector.name,
+      color: sector.color,
+      label: sector.label,
+      corners: [],
+      pathRange: { start: sector.range[0], end: sector.range[1] },
+    })),
     corners: [],
     drsZones: [],
     speedTrap: null,
