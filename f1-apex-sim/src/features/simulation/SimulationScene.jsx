@@ -9,15 +9,15 @@ import {
   getSpeedAtTime,
 } from './simulationMath';
 
-const SCALE = 1 / 6; // metres -> scene units
-const TRACK_WIDTH = 13; // metres
-const KERB_WIDTH = 1.6;
+export const SCALE = 1 / 6; // metres -> scene units
+export const TRACK_WIDTH = 13; // metres
+export const KERB_WIDTH = 1.6;
 
-const toScene = (point) => [point.x * SCALE, 0, -point.y * SCALE];
+export const toScene = (point) => [point.x * SCALE, 0, -point.y * SCALE];
 
 // Triangle-strip ribbon along a 2D path. Optionally offset sideways (metres)
 // and restricted to a zone ('arc' for kerbs), with alternating vertex colors.
-const buildRibbonGeometry = (points, width, {
+export const buildRibbonGeometry = (points, width, {
   sideOffset = 0,
   yOffset = 0.01,
   zone = null,
@@ -103,7 +103,7 @@ const Wheel = ({ position, spinRef, steerRef, front = false }) => {
 };
 
 // Generic red single-seater built from primitives (deliberately unlicensed).
-const FormulaCar = ({ spinRef, steerRef }) => (
+export const FormulaCar = ({ spinRef, steerRef }) => (
   <group scale={SCALE * 1.9}>
     <mesh position={[0, 0.14, 0]} castShadow>
       <boxGeometry args={[3.4, 0.12, 1.5]} />
@@ -181,7 +181,7 @@ const Marker = ({ path, distance, color }) => {
   );
 };
 
-const FinishGantry = ({ path }) => {
+export const FinishGantry = ({ path }) => {
   const pose = useMemo(() => getPoseAtDistance(path, path.totalLength - 2), [path]);
   const width = (TRACK_WIDTH / 2 + 2) * SCALE;
 
