@@ -2,13 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Line, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import {
-  SCALE,
-  KERB_WIDTH,
-  buildRibbonGeometry,
-  FormulaCar,
-  FinishGantry,
-} from './SimulationScene';
+import { FormulaCar, FinishGantry } from './SimulationScene';
+import { SCALE, KERB_WIDTH, buildRibbonGeometry } from './trackGeometry3d';
 import {
   getDistanceAtTime,
   getPoseAtDistance,
