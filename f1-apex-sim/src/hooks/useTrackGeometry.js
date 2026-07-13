@@ -10,10 +10,15 @@ const initialState = {
 export const useTrackGeometry = (track, geometryOverride = null) => {
   const [state, setState] = useState(initialState);
   const hasOverride = Boolean(geometryOverride?.points?.length);
+  const embeddedGeometry = track?.geometry
+    ?? track?.normalizedDisplayGeometry
+    ?? track?.circuitGeometry
+    ?? null;
+  const hasEmbeddedGeometry = Boolean(embeddedGeometry?.points?.length);
   const svgPath = track?.svgPath ?? null;
 
   useEffect(() => {
-    if (hasOverride || !svgPath) return undefined;
+    if (hasOverride || hasEmbeddedGeometry || !svgPath) return undefined;
 
     const controller = new AbortController();
 
@@ -42,11 +47,15 @@ export const useTrackGeometry = (track, geometryOverride = null) => {
     loadGeometry();
 
     return () => controller.abort();
-  }, [hasOverride, svgPath]);
+  }, [hasEmbeddedGeometry, hasOverride, svgPath]);
 
   // Live geometry (e.g. an OpenF1 outline) wins over anything fetched.
   if (hasOverride) {
     return { status: 'ready', geometry: geometryOverride, error: null };
+  }
+
+  if (hasEmbeddedGeometry) {
+    return { status: 'ready', geometry: embeddedGeometry, error: null };
   }
 
   if (!svgPath) {

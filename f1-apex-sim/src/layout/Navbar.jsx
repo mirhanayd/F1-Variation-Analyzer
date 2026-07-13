@@ -38,9 +38,18 @@ const SimulationIcon = (
   </svg>
 );
 
+const LiveIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+    <path d="M8.6 8.6a4.8 4.8 0 0 0 0 6.8m6.8 0a4.8 4.8 0 0 0 0-6.8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M5.4 5.4a9.3 9.3 0 0 0 0 13.2m13.2 0a9.3 9.3 0 0 0 0-13.2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
 const navItems = [
   { to: '/', label: 'Schedule', icon: CalendarIcon },
   { to: '/circuits', label: 'Circuits', icon: CircuitIcon },
+  { to: '/live', label: 'Live', icon: LiveIcon },
   { to: '/simulation', label: 'Simulation', icon: SimulationIcon },
 ];
 

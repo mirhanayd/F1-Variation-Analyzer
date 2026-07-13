@@ -1,17 +1,18 @@
 import gsap from 'gsap';
-import { getBoundingBox, slicePointsByRange } from './trackGeometry';
+import { getCircuitBoundingBox, sliceCircuitByProgress } from './circuitGeometry';
 
 const buildSectors = (trackData, geometry) => trackData.sectors.map((sector, index) => {
-  const points = slicePointsByRange(geometry.points, sector.pathRange ?? {
+  const range = sector.pathRange ?? {
     start: index / trackData.sectors.length,
     end: (index + 1) / trackData.sectors.length,
-  });
+  };
+  const points = sliceCircuitByProgress(geometry.points, range.start, range.end);
 
   return {
     ...sector,
     index,
     points,
-    boundingBox: getBoundingBox(points),
+    boundingBox: getCircuitBoundingBox(points),
   };
 });
 
@@ -26,6 +27,15 @@ export class TrackRenderer {
     this.animationFrame = null;
     this.cssSize = { width: 0, height: 0 };
     this.onCameraUpdate = null;
+    this.lastNotifiedCamera = null;
+    this.handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        if (this.animationFrame) window.cancelAnimationFrame(this.animationFrame);
+        this.animationFrame = null;
+      } else {
+        this.startRenderLoop();
+      }
+    };
 
     this.camera = {
       x: 0,
@@ -37,6 +47,7 @@ export class TrackRenderer {
     };
 
     this.fitTrackToView();
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
     this.startRenderLoop();
   }
 
@@ -102,6 +113,7 @@ export class TrackRenderer {
   }
 
   startRenderLoop() {
+    if (this.animationFrame || document.visibilityState === 'hidden') return;
     const render = () => {
       this.update();
       this.draw();
@@ -116,11 +128,21 @@ export class TrackRenderer {
     this.camera.y += (this.camera.targetY - this.camera.y) * 0.22;
     this.camera.scale += (this.camera.targetScale - this.camera.scale) * 0.22;
 
-    this.onCameraUpdate?.({
+    const nextCamera = {
       x: this.camera.x,
       y: this.camera.y,
       scale: this.camera.scale,
-    });
+    };
+    const previous = this.lastNotifiedCamera;
+    if (
+      !previous
+      || Math.abs(previous.x - nextCamera.x) > 0.05
+      || Math.abs(previous.y - nextCamera.y) > 0.05
+      || Math.abs(previous.scale - nextCamera.scale) > 0.0005
+    ) {
+      this.lastNotifiedCamera = nextCamera;
+      this.onCameraUpdate?.(nextCamera);
+    }
   }
 
   drawTrackSegment(points, color, width, glow) {
@@ -170,6 +192,7 @@ export class TrackRenderer {
 
   destroy() {
     gsap.killTweensOf(this.camera);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     if (this.animationFrame) {
       window.cancelAnimationFrame(this.animationFrame);
     }

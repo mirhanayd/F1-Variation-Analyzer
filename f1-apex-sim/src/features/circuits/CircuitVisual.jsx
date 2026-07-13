@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { getCircuitOutline } from '../../data/circuitOutlines';
 
 const monogramFor = (circuit) => {
   const source = circuit?.shortName ?? circuit?.name ?? '?';
@@ -22,6 +21,27 @@ const RealOutline = ({ outline }) => (
   </svg>
 );
 
+const geometryToOutline = (circuit) => {
+  const geometry = circuit?.stylisedGeometry
+    ?? circuit?.geometry?.stylisedGeometry
+    ?? circuit?.normalizedDisplayGeometry
+    ?? circuit?.geometry
+    ?? null;
+  const points = geometry?.points;
+  if (!points?.length) return null;
+  const bbox = geometry.bbox ?? circuit?.geometry?.bbox;
+  const minX = bbox?.minX ?? bbox?.x ?? Math.min(...points.map((point) => point.x));
+  const minY = bbox?.minY ?? bbox?.y ?? Math.min(...points.map((point) => point.y));
+  const width = bbox?.width ?? Math.max(...points.map((point) => point.x)) - minX;
+  const height = bbox?.height ?? Math.max(...points.map((point) => point.y)) - minY;
+  const padding = Math.max(width, height) * 0.08;
+
+  return {
+    path: points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' '),
+    viewBox: `${minX - padding} ${minY - padding} ${Math.max(1, width + padding * 2)} ${Math.max(1, height + padding * 2)}`,
+  };
+};
+
 // Deliberately abstract placeholder for circuits with no verified outline —
 // it must NOT look like a track layout.
 const FallbackVisual = ({ circuit }) => (
@@ -32,7 +52,7 @@ const FallbackVisual = ({ circuit }) => (
 );
 
 const CircuitVisual = ({ circuit, label = null, children = null }) => {
-  const outline = useMemo(() => getCircuitOutline(circuit?.id), [circuit?.id]);
+  const outline = useMemo(() => geometryToOutline(circuit), [circuit]);
 
   return (
     <div

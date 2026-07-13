@@ -4,15 +4,15 @@ import PageShell from '../layout/PageShell';
 import TrackCanvas from '../components/TrackCanvas';
 import TelemetryPanel from '../components/TelemetryPanel';
 import { useCircuits } from '../hooks/useCircuits';
-import { useCircuitOutline } from '../hooks/useCircuitOutline';
 import { useTelemetryReplay } from '../hooks/useTelemetryReplay';
 import { useCircuitHistory } from '../hooks/useCircuitHistory';
+import { useCanonicalCircuitGeometry } from '../hooks/useCanonicalCircuitGeometry';
 import { createTrackMapData } from '../features/track-map/trackMapData';
 import CircuitVisual from '../features/circuits/CircuitVisual';
 import { CORNER_TYPE_LABELS, getCornersForCircuit, hasCuratedCorners } from '../data/cornerLibrary';
 import { getCircuitSections } from '../data/circuitSections';
-import { getOutlineSamplePoints, hasRealOutline } from '../data/circuitOutlines';
 import { formatDateTime } from '../utils/dateTime';
+import CircuitLiveTracking from '../features/live/CircuitLiveTracking';
 
 const FullTrackSimulation = lazy(() => import('../features/simulation/FullTrackSimulation'));
 
@@ -199,19 +199,32 @@ const CircuitDetailPage = () => {
   const [viewMode, setViewMode] = useState(null);
   const replayRequested = replayAttempt > 0;
 
-  const trackMapData = useMemo(() => (circuit ? createTrackMapData(circuit) : null), [circuit]);
+  const canonicalGeometry = useCanonicalCircuitGeometry(circuit);
+  const circuitForRendering = useMemo(() => {
+    if (!circuit || !canonicalGeometry.geometry) return circuit;
+    return {
+      ...circuit,
+      geometry: canonicalGeometry.geometry.normalizedDisplayGeometry ?? canonicalGeometry.geometry,
+      normalizedDisplayGeometry: canonicalGeometry.geometry.normalizedDisplayGeometry,
+      stylisedGeometry: canonicalGeometry.geometry.stylisedGeometry,
+      sectors: canonicalGeometry.geometry.sectors,
+      turns: canonicalGeometry.geometry.turns,
+    };
+  }, [canonicalGeometry.geometry, circuit]);
+  const trackMapData = useMemo(
+    () => (circuitForRendering ? createTrackMapData(circuitForRendering) : null),
+    [circuitForRendering],
+  );
   const sections = useMemo(() => (circuit ? getCircuitSections(circuit) : null), [circuit]);
-  const outline = useCircuitOutline(trackMapData);
   const replay = useTelemetryReplay(trackMapData, {
     enabled: replayRequested,
     reloadKey: replayAttempt,
   });
   const historyQuery = useCircuitHistory(circuit?.id);
 
-  const simulationPoints = useMemo(
-    () => (circuit && hasRealOutline(circuit.id) ? getOutlineSamplePoints(circuit.id) : null),
-    [circuit],
-  );
+  const simulationPoints = canonicalGeometry.geometry?.normalizedDisplayGeometry?.points
+    ?? canonicalGeometry.geometry?.points
+    ?? null;
   const canSimulateFullTrack = Boolean(simulationPoints);
 
   if (!circuit && isLoading) {
@@ -234,14 +247,17 @@ const CircuitDetailPage = () => {
     );
   }
 
-  const geometryOverride = replay.circuitGeometry ?? outline.geometry;
-  const canRenderTrack = Boolean(trackMapData.svgPath || geometryOverride?.points?.length);
+  const geometryOverride = canonicalGeometry.geometry?.normalizedDisplayGeometry
+    ?? canonicalGeometry.geometry
+    ?? trackMapData.geometry;
+  const canRenderTrack = Boolean(geometryOverride?.points?.length);
   const stats = circuit.stats ?? {};
 
   const viewModes = [
-    { id: 'stylised', label: 'Stylised Outline' },
     ...(canRenderTrack ? [{ id: 'map', label: 'Track Map' }] : []),
+    { id: 'stylised', label: 'Stylised Outline' },
     ...(simulationPoints ? [{ id: 'simulation', label: 'Full Track Simulation' }] : []),
+    ...(canRenderTrack ? [{ id: 'tracking', label: 'Live / Replay Tracking' }] : []),
   ];
   const defaultMode = canRenderTrack ? 'map' : 'stylised';
   const activeMode = viewModes.some((mode) => mode.id === viewMode) ? viewMode : defaultMode;
@@ -291,7 +307,7 @@ const CircuitDetailPage = () => {
 
           {activeMode === 'stylised' && (
             <CircuitVisual
-              circuit={circuit}
+              circuit={circuitForRendering}
               label={canSimulateFullTrack ? 'Stylised outline' : 'No verified outline yet'}
             >
               {!canSimulateFullTrack && (
@@ -318,6 +334,10 @@ const CircuitDetailPage = () => {
                 sections={sections}
               />
             </Suspense>
+          )}
+
+          {activeMode === 'tracking' && canRenderTrack && (
+            <CircuitLiveTracking circuit={circuitForRendering} geometry={canonicalGeometry.geometry} />
           )}
         </div>
 

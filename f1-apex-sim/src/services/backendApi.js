@@ -53,7 +53,10 @@ export const backendApi = {
     `/api/openf1/${encodeURIComponent(endpoint)}${toQueryString(params)}`,
     options,
   ),
+  jolpica: (path, params, options) => {
+    const safePath = String(path).split('/').map(encodeURIComponent).join('/');
+    return request(`/api/jolpica/${safePath}${toQueryString(params)}`, options);
+  },
 };
 
 export default backendApi;
-

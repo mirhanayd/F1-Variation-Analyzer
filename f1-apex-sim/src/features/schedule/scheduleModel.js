@@ -2,7 +2,7 @@ import {
   getCircuitById,
   getCircuitByOpenF1Name,
   normalizeCircuitId,
-} from '../../data/circuitRegistry';
+} from '../../data/circuits';
 
 export const SESSION_ORDER = [
   'Practice 1',

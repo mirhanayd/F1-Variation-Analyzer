@@ -213,6 +213,16 @@
   align-items: start;
 }
 
+.embedded-live-tracking {
+  padding: 12px;
+}
+
+.embedded-live-tracking .live-map-panel,
+.embedded-live-tracking .live-map-panel .track-canvas-wrapper,
+.embedded-live-tracking .live-map-panel .canvas-track-container {
+  min-height: 520px;
+}
+
 .live-map-panel {
   min-width: 0;
   min-height: clamp(430px, 68vh, 780px);
@@ -491,4 +501,3 @@
 @media (prefers-reduced-motion: reduce) {
   .live-source-badge i { animation: none; }
 }
-

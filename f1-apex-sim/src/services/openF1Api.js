@@ -1,7 +1,5 @@
-import { buildUrl, fetchJson, sleep } from './httpClient';
-import { buildGeometryFromPointArrays } from '../utils/trackGeometry';
-
-const BASE_URL = 'https://api.openf1.org/v1/';
+import { sleep } from './httpClient';
+import backendApi from './backendApi';
 const OPENF1_FIRST_YEAR = 2023;
 const HISTORICAL_WINDOW_DELAY_MS = 30 * 60 * 1000;
 
@@ -17,7 +15,7 @@ const isHistoricalSession = (session, nowMs = Date.now()) => {
 
 class OpenF1Service {
   request(endpoint, params = {}, options = {}) {
-    return fetchJson(buildUrl(BASE_URL, endpoint, params), options);
+    return backendApi.openF1(endpoint, params, options);
   }
 
   getMeetings(params = {}, options = {}) {
@@ -80,19 +78,12 @@ class OpenF1Service {
   }
 
   async getCircuitGeometry(circuitInfoUrl, options = {}) {
-    if (!circuitInfoUrl) return null;
-
-    const data = await fetchJson(circuitInfoUrl, options);
-    if (!Array.isArray(data.x) || !Array.isArray(data.y)) return null;
-
-    return buildGeometryFromPointArrays(data.x, data.y, {
-      source: 'multiviewer',
-      coordinateSpace: 'liveTiming',
-      rotation: data.rotation,
-      corners: data.corners ?? [],
-      marshalLights: data.marshalLights ?? [],
-      marshalSectors: data.marshalSectors ?? [],
-    });
+    // Circuit geometry is canonical GeoJSON bundled with the application.
+    // Keeping this no-op preserves the historical API surface without allowing
+    // the frontend to follow an arbitrary third-party circuit_info_url.
+    void circuitInfoUrl;
+    void options;
+    return null;
   }
 
   async findLatestCompletedRaceSession(openF1Config = {}, options = {}) {

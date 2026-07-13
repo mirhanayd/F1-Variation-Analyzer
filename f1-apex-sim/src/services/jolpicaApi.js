@@ -1,13 +1,11 @@
-import { buildUrl, fetchJson } from './httpClient';
-
-const BASE_URL = 'https://api.jolpi.ca/ergast/f1/';
+import backendApi from './backendApi';
 
 const getRaces = (data) => data?.MRData?.RaceTable?.Races ?? [];
 const getCircuits = (data) => data?.MRData?.CircuitTable?.Circuits ?? [];
 
 class JolpicaService {
   request(path = '', params = {}, options = {}) {
-    return fetchJson(buildUrl(BASE_URL, path, params), options);
+    return backendApi.jolpica(path, params, options);
   }
 
   async getCircuit(circuitId, options = {}) {
