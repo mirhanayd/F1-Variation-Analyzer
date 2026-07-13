@@ -48,6 +48,8 @@ export const useLiveGateway = ({ enabled = true, circuitId = null } = {}) => {
   const socketRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const heartbeatTimerRef = useRef(null);
+  const snapshotFrameRef = useRef(null);
+  const pendingSnapshotRef = useRef(null);
   const connectRef = useRef(null);
   const attemptRef = useRef(0);
   const stoppedRef = useRef(false);
@@ -57,12 +59,30 @@ export const useLiveGateway = ({ enabled = true, circuitId = null } = {}) => {
     if (!enabled) return undefined;
 
     stoppedRef.current = false;
+    let disposed = false;
 
     const clearTimers = () => {
       window.clearTimeout(reconnectTimerRef.current);
       window.clearTimeout(heartbeatTimerRef.current);
+      window.cancelAnimationFrame(snapshotFrameRef.current);
       reconnectTimerRef.current = null;
       heartbeatTimerRef.current = null;
+      snapshotFrameRef.current = null;
+      pendingSnapshotRef.current = null;
+    };
+
+    const queueSnapshot = (nextSnapshot) => {
+      pendingSnapshotRef.current = nextSnapshot;
+      if (snapshotFrameRef.current) return;
+      snapshotFrameRef.current = window.requestAnimationFrame(() => {
+        snapshotFrameRef.current = null;
+        const queued = pendingSnapshotRef.current;
+        pendingSnapshotRef.current = null;
+        if (!queued || disposed) return;
+        setSnapshot({ ...EMPTY_SNAPSHOT, ...queued });
+        setConnectionState(connectionStateFor(queued, socketRef.current?.readyState));
+        setError(null);
+      });
     };
 
     const armHeartbeatGuard = () => {
@@ -129,9 +149,7 @@ export const useLiveGateway = ({ enabled = true, circuitId = null } = {}) => {
 
           const nextSnapshot = snapshotFromMessage(message);
           if (!nextSnapshot) return;
-          setSnapshot({ ...EMPTY_SNAPSHOT, ...nextSnapshot });
-          setConnectionState(connectionStateFor(nextSnapshot, socket.readyState));
-          setError(null);
+          queueSnapshot(nextSnapshot);
         } catch (messageError) {
           setError(new Error(`Invalid live gateway message: ${messageError.message}`));
         }
@@ -151,6 +169,9 @@ export const useLiveGateway = ({ enabled = true, circuitId = null } = {}) => {
     };
 
     connectRef.current = connect;
+    backendApi.getLiveSnapshot()
+      .then(queueSnapshot)
+      .catch(() => {});
     connect();
 
     const handleVisibility = () => {
@@ -167,10 +188,12 @@ export const useLiveGateway = ({ enabled = true, circuitId = null } = {}) => {
     CapacitorApp.addListener('appStateChange', ({ isActive }) => {
       if (isActive) handleVisibility();
     }).then((handle) => {
-      appStateHandle = handle;
+      if (disposed) handle.remove();
+      else appStateHandle = handle;
     }).catch(() => {});
 
     return () => {
+      disposed = true;
       stoppedRef.current = true;
       clearTimers();
       document.removeEventListener('visibilitychange', handleVisibility);
@@ -219,4 +242,3 @@ export const useLiveGateway = ({ enabled = true, circuitId = null } = {}) => {
 };
 
 export default useLiveGateway;
-
