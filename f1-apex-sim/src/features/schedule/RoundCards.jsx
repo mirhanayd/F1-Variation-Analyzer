@@ -107,22 +107,22 @@ export const NextGrandPrixCard = ({ round }) => {
     );
   }
 
-  const isLive = round.status === 'current';
+  const isCurrentWeekend = round.status === 'current';
   const countdownSession = round.nextSession ?? getSessionByName(round, 'Race');
 
   return (
-    <section className={`next-grand-prix ${isLive ? 'is-live' : ''}`}>
+    <section className={`next-grand-prix ${isCurrentWeekend ? 'is-live' : ''}`}>
       <div className="next-grand-prix-visual">
         <CircuitVisual circuit={round.circuit} label={`Round ${round.round}`} />
       </div>
 
       <div className="next-grand-prix-content">
         <div className="next-gp-eyebrow-row">
-          <span className="page-eyebrow">{isLive ? 'Race weekend live' : 'Next Grand Prix'}</span>
-          {isLive && (
+          <span className="page-eyebrow">{isCurrentWeekend ? 'Race weekend underway' : 'Next Grand Prix'}</span>
+          {isCurrentWeekend && (
             <span className="live-chip">
               <span className="live-dot" aria-hidden="true" />
-              LIVE
+              WEEKEND
             </span>
           )}
         </div>
@@ -136,12 +136,14 @@ export const NextGrandPrixCard = ({ round }) => {
           <span>Round {round.round} / {round.season}</span>
         </div>
         <SessionTimeline round={round} />
-        <Link className="pw-button" to={getCircuitLink(round)}>Circuit details</Link>
+        <Link className="pw-button" to={isCurrentWeekend ? '/live' : getCircuitLink(round)}>
+          {isCurrentWeekend ? 'Open live / replay' : 'Circuit details'}
+        </Link>
       </div>
 
       <CountdownCard
         session={countdownSession}
-        title={isLive ? 'Up next on track' : 'Lights out in'}
+        title={isCurrentWeekend ? 'Up next on track' : 'Lights out in'}
         compact
       />
     </section>
