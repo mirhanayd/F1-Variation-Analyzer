@@ -4,6 +4,7 @@ import PageShell from '../layout/PageShell';
 import TrackCanvas from '../components/TrackCanvas';
 import { useCircuits } from '../hooks/useCircuits';
 import { useLiveGateway } from '../hooks/useLiveGateway';
+import { useTelemetryReplay } from '../hooks/useTelemetryReplay';
 import { useCanonicalCircuitGeometry } from '../hooks/useCanonicalCircuitGeometry';
 import { createTrackMapData } from '../features/track-map/trackMapData';
 import { getCircuitByOpenF1Name } from '../data/circuits';
@@ -16,6 +17,7 @@ import {
 } from '../features/live/LivePanels';
 import { sourceLabel } from '../features/live/liveLabels';
 import { useProjectedLivePositions } from '../features/live/useProjectedLivePositions';
+import ReplayTelemetryPanel from '../components/TelemetryPanel';
 import '../features/live/live.css';
 
 const driverAtPosition = (snapshot, wantedPosition) => Object.entries(snapshot?.positionsByDriver ?? {})
@@ -28,6 +30,7 @@ const LiveTrackingPage = () => {
   const live = useLiveGateway();
   const [selectedCircuitId, setSelectedCircuitId] = useState(requestedCircuit);
   const [selectedDriverNumber, setSelectedDriverNumber] = useState(null);
+  const [replayAttempt, setReplayAttempt] = useState(0);
 
   const canonicalCircuits = useMemo(
     () => circuits.filter((circuit) => circuit.geojsonSourcePath || circuit.geojsonPath || circuit.geometrySource),
@@ -44,11 +47,6 @@ const LiveTrackingPage = () => {
       circuit.id === chosenId || circuit.slug === chosenId
     )) ?? canonicalCircuits.find((circuit) => circuit.active) ?? canonicalCircuits[0] ?? null;
   }, [canonicalCircuits, liveCircuit?.id, selectedCircuitId]);
-
-  const driverNumbers = Object.keys(live.snapshot?.driversByNumber ?? {});
-  const effectiveDriverNumber = driverNumbers.includes(String(selectedDriverNumber))
-    ? selectedDriverNumber
-    : driverAtPosition(live.snapshot, 1) ?? driverNumbers[0] ?? null;
 
   const geometryState = useCanonicalCircuitGeometry(selectedCircuit);
   const circuitWithGeometry = useMemo(() => (
@@ -67,10 +65,60 @@ const LiveTrackingPage = () => {
     () => (circuitWithGeometry ? createTrackMapData(circuitWithGeometry) : null),
     [circuitWithGeometry],
   );
+  const gatewayIsLive = live.snapshot?.source === 'openf1-live'
+    && live.snapshot?.status === 'live';
+  // Never overlay a live feed on guessed geometry. Wait for the gateway's
+  // session/meeting metadata to identify the circuit, then require an exact
+  // canonical registry match.
+  const liveMatchesSelectedCircuit = Boolean(
+    liveCircuit?.id && selectedCircuit?.id && liveCircuit.id === selectedCircuit.id,
+  );
+  const isLive = gatewayIsLive && liveMatchesSelectedCircuit;
+  const gatewayResolved = Boolean(live.snapshot?.updatedAt)
+    || live.connectionState === 'reconnecting'
+    || Boolean(live.error);
+  const replayEnabled = Boolean(track) && !isLive && gatewayResolved;
+  const replay = useTelemetryReplay(track, {
+    enabled: replayEnabled,
+    reloadKey: replayAttempt,
+  });
+  const replayPlaceholder = useMemo(() => {
+    const isLoadingReplay = replayEnabled && replay.status === 'loading';
+    const isReplayError = replay.status === 'error';
+    return {
+      source: isLoadingReplay ? 'openf1-historical-replay' : 'offline-demo',
+      status: isLoadingReplay ? 'connecting' : isReplayError ? 'error' : 'idle',
+      meetingName: selectedCircuit?.grandPrix ?? selectedCircuit?.name ?? 'Selected circuit',
+      sessionName: isLoadingReplay ? 'Loading selected-circuit replay' : 'No replay loaded',
+      updatedAt: null,
+      latencyMs: null,
+      driversByNumber: {},
+      locationsByDriver: {},
+      carDataByDriver: {},
+      positionsByDriver: {},
+      intervalsByDriver: {},
+      lapsByDriver: {},
+      messages: [{
+        level: isReplayError ? 'error' : 'info',
+        text: isReplayError
+          ? (replay.error?.message ?? 'No historical replay is available for this circuit.')
+          : 'Waiting for the selected circuit\'s historical replay. Replay data is never presented as live.',
+      }],
+    };
+  }, [replay.error, replay.status, replayEnabled, selectedCircuit]);
+  const displaySnapshot = isLive ? live.snapshot : replay.snapshot ?? replayPlaceholder;
+  const displayConnectionState = isLive
+    ? live.connectionState
+    : replay.snapshot ? 'replay' : replay.status === 'error' ? 'error' : 'connecting';
+  const driverNumbers = Object.keys(displaySnapshot?.driversByNumber ?? {});
+  const effectiveDriverNumber = driverNumbers.includes(String(selectedDriverNumber))
+    ? selectedDriverNumber
+    : driverAtPosition(displaySnapshot, 1) ?? driverNumbers[0] ?? null;
   const positions = useProjectedLivePositions({
-    snapshot: live.snapshot,
+    snapshot: displaySnapshot,
     circuit: selectedCircuit,
     geometry: geometryState.geometry?.normalizedDisplayGeometry ?? geometryState.geometry,
+    calibrationSamples: isLive ? null : replay.calibrationSamples,
   });
 
   const handleCircuitChange = (event) => {
@@ -79,8 +127,11 @@ const LiveTrackingPage = () => {
     setSearchParams({ circuit: id }, { replace: true });
   };
 
-  const isLive = live.snapshot?.source === 'openf1-live' && live.snapshot?.status === 'live';
-  const gatewayMessage = live.snapshot?.messages?.at(-1)?.text;
+  const gatewayMessage = displaySnapshot?.messages?.at(-1)?.text;
+  const handleReconnect = () => {
+    live.reconnect();
+    setReplayAttempt((attempt) => attempt + 1);
+  };
 
   return (
     <PageShell
@@ -107,17 +158,17 @@ const LiveTrackingPage = () => {
       )}
     >
       <LiveStatusBar
-        snapshot={live.snapshot}
-        connectionState={live.connectionState}
-        error={live.error}
+        snapshot={displaySnapshot}
+        connectionState={displayConnectionState}
+        error={isLive ? live.error : replay.error ?? live.error}
         reconnectInMs={live.reconnectInMs}
-        onReconnect={live.reconnect}
+        onReconnect={handleReconnect}
       />
 
       {!isLive && (
         <div className="live-fallback-notice">
           <div>
-            <strong>{live.snapshot?.status === 'replay' ? 'Historical replay fallback is active.' : 'Live timing is currently unavailable.'}</strong>
+            <strong>{replay.snapshot ? 'Historical replay fallback is active.' : replay.status === 'loading' ? 'Loading the selected circuit replay.' : 'Live timing is currently unavailable.'}</strong>
             <span>{gatewayMessage ?? 'The gateway will reconnect automatically and will never present replay data as live.'}</span>
           </div>
           {selectedCircuit && (
@@ -146,8 +197,8 @@ const LiveTrackingPage = () => {
               track={track}
               telemetryPositions={positions}
               telemetryGeometry={track.geometry}
-              replayStatus={live.snapshot?.status}
-              sourceLabel={sourceLabel(live.snapshot?.source)}
+              replayStatus={displaySnapshot?.status}
+              sourceLabel={sourceLabel(displaySnapshot?.source)}
               selectedDriverNumber={effectiveDriverNumber}
               onVehicleSelect={setSelectedDriverNumber}
               onSectorClick={() => {}}
@@ -158,13 +209,20 @@ const LiveTrackingPage = () => {
 
         <aside className="live-panel-stack">
           <PositionPanel
-            snapshot={live.snapshot}
+            snapshot={displaySnapshot}
             selectedDriverNumber={effectiveDriverNumber}
             onSelectDriver={setSelectedDriverNumber}
           />
-          <TelemetryPanel snapshot={live.snapshot} driverNumber={effectiveDriverNumber} />
-          <IntervalsPanel snapshot={live.snapshot} driverNumber={effectiveDriverNumber} />
-          <LapSectorPanel snapshot={live.snapshot} driverNumber={effectiveDriverNumber} />
+          <TelemetryPanel snapshot={displaySnapshot} driverNumber={effectiveDriverNumber} />
+          <IntervalsPanel snapshot={displaySnapshot} driverNumber={effectiveDriverNumber} />
+          <LapSectorPanel snapshot={displaySnapshot} driverNumber={effectiveDriverNumber} />
+          {!isLive && replayEnabled && (
+            <ReplayTelemetryPanel
+              replay={replay}
+              loadRequested
+              onLoad={() => setReplayAttempt((attempt) => attempt + 1)}
+            />
+          )}
         </aside>
       </div>
     </PageShell>

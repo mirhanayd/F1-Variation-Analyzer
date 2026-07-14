@@ -1,5 +1,61 @@
 import openF1Api from './openF1Api';
 import jolpicaApi from './jolpicaApi';
+import backendApi from './backendApi';
+
+const groupByDriver = (records = []) => records.reduce((groups, record) => {
+  const key = record.driver_number ?? record.driverNumber;
+  if (key === undefined || key === null) return groups;
+  if (!groups[key]) groups[key] = [];
+  groups[key].push(record);
+  return groups;
+}, {});
+
+const normalizeGatewayReplay = (replay) => {
+  if (!replay) return null;
+  if (replay.locationByDriver) return replay;
+  const generatedSamples = replay.samplesByDriver ?? null;
+  const generatedDrivers = Object.values(replay.driversByNumber ?? {}).map((driver) => ({
+    ...driver,
+    driver_number: driver.driver_number ?? driver.driverNumber,
+    name_acronym: driver.name_acronym ?? driver.acronym,
+    broadcast_name: driver.broadcast_name ?? driver.broadcastName,
+    full_name: driver.full_name ?? driver.fullName,
+    team_name: driver.team_name ?? driver.teamName,
+    team_colour: driver.team_colour ?? driver.teamColor,
+  }));
+  const sampleDates = Object.values(generatedSamples ?? {})
+    .flat()
+    .map((sample) => Date.parse(sample.date))
+    .filter(Number.isFinite)
+    .sort((left, right) => left - right);
+  const windowStart = replay.window?.start
+    ?? (sampleDates[0] ? new Date(sampleDates[0]).toISOString() : replay.session?.dateStart);
+  const windowEnd = replay.window?.end
+    ?? (sampleDates.at(-1) ? new Date(sampleDates.at(-1)).toISOString() : windowStart);
+  const durationMs = replay.window?.durationMs
+    ?? Math.max(0, Date.parse(windowEnd) - Date.parse(windowStart));
+  return {
+    ...replay,
+    meeting: replay.meeting ?? {
+      meeting_name: replay.session?.meetingName ?? replay.session?.event ?? 'Generated replay',
+      circuit_short_name: replay.session?.circuitName ?? null,
+    },
+    session: replay.session?.session_name ? replay.session : {
+      ...replay.session,
+      session_key: replay.session?.sessionKey,
+      session_name: replay.session?.name ?? 'Race',
+      date_start: replay.session?.dateStart ?? windowStart,
+    },
+    drivers: replay.drivers ?? generatedDrivers,
+    locationByDriver: generatedSamples ?? groupByDriver(replay.location ?? []),
+    carDataByDriver: groupByDriver(replay.carData ?? []),
+    positionByDriver: groupByDriver(replay.position ?? []),
+    intervalsByDriver: groupByDriver(replay.intervals ?? []),
+    lapsByDriver: groupByDriver(replay.laps ?? []),
+    window: { start: windowStart, end: windowEnd, durationMs },
+    circuitGeometry: null,
+  };
+};
 
 class DataManager {
   constructor() {
@@ -69,8 +125,22 @@ class DataManager {
     if (!track.openF1) return null;
 
     const cacheKey = `replay_${track.id}_${options.driverLimit ?? 8}_${options.replayWindowMs ?? 'default'}`;
+    const circuitNames = track.openF1.circuitShortNames ?? [track.openF1.circuitShortName];
+    const circuitShortName = circuitNames.find(Boolean);
 
-    return this.getOrFetch(cacheKey, () => openF1Api.getReplayPackage(track.openF1, options), {
+    return this.getOrFetch(cacheKey, async () => {
+      try {
+        return normalizeGatewayReplay(await backendApi.getLatestReplay(
+          { circuitShortName },
+          { signal: options.signal, timeoutMs: 90_000 },
+        ));
+      } catch (error) {
+        // Older/custom gateways may not expose /latest yet. The compatibility
+        // path still remains backend-only through the allowlisted proxy.
+        if (!String(error.message).includes('Gateway endpoint not found')) throw error;
+        return openF1Api.getReplayPackage(track.openF1, options);
+      }
+    }, {
       cacheTimeout: 15 * 60 * 1000,
     });
   }

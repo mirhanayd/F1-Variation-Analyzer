@@ -41,8 +41,8 @@ class OpenF1Service {
     return this.request('car_data', {
       session_key: sessionKey,
       driver_number: driverNumber,
-      'date>=': dateStart,
-      'date<=': dateEnd,
+      'date>': dateStart,
+      'date<': dateEnd,
     }, options);
   }
 
@@ -50,8 +50,8 @@ class OpenF1Service {
     return this.request('location', {
       session_key: sessionKey,
       driver_number: driverNumber,
-      'date>=': dateStart,
-      'date<=': dateEnd,
+      'date>': dateStart,
+      'date<': dateEnd,
     }, options);
   }
 

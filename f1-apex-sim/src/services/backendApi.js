@@ -45,6 +45,7 @@ export const backendApi = {
   getCurrentSession: (options) => request('/api/live/sessions/current', options),
   getLiveSnapshot: (options) => request('/api/live/snapshot', options),
   getReplaySessions: (params, options) => request(`/api/replay/sessions${toQueryString(params)}`, options),
+  getLatestReplay: (params, options) => request(`/api/replay/latest${toQueryString(params)}`, options),
   getReplay: (sessionKey, params, options) => request(
     `/api/replay/${encodeURIComponent(sessionKey)}${toQueryString(params)}`,
     options,
