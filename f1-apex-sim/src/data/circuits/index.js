@@ -17,3 +17,4 @@ export {
 } from './circuitRegistry';
 
 export { default } from './circuitRegistry';
+export { CIRCUIT_MANIFEST } from './circuitManifest';
