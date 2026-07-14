@@ -65,6 +65,35 @@ test('normalizes required OpenF1 topics and rejects duplicates/out-of-order samp
   assert.equal(snapshot.lapsByDriver['44'].sector1, 25.1);
   assert.equal(snapshot.latencyMs, 600);
 
+  assert.equal(store.apply('v1/laps', {
+    _id: 101,
+    _key: '123_44_10',
+    driver_number: 44,
+    lap_number: 10,
+    duration_sector_1: 25.1,
+    date_start: '2026-07-13T12:00:04.400Z',
+  }), true);
+  assert.equal(store.apply('v1/laps', {
+    _id: 102,
+    _key: '123_44_10',
+    driver_number: 44,
+    lap_number: 10,
+    duration_sector_1: 25.1,
+    duration_sector_2: 31.2,
+    date_start: '2026-07-13T12:00:04.400Z',
+  }), true);
+  assert.equal(store.apply('v1/laps', {
+    _id: 102,
+    _key: '123_44_10',
+    driver_number: 44,
+    lap_number: 10,
+    duration_sector_1: 25.1,
+    duration_sector_2: 31.2,
+    date_start: '2026-07-13T12:00:04.400Z',
+  }), false);
+  snapshot = store.getSnapshot();
+  assert.equal(snapshot.lapsByDriver['44'].sector2, 31.2);
+
   now += 11_000;
   snapshot = store.getSnapshot();
   assert.equal(snapshot.locationsByDriver['44'].stale, true);
@@ -80,4 +109,10 @@ test('replay state is clearly distinct from live state', () => {
   assert.equal(snapshot.source, 'openf1-historical-replay');
   assert.equal(snapshot.status, 'replay');
   assert.equal(snapshot.circuitShortName, 'Istanbul');
+
+  store.beginLive();
+  const liveSnapshot = store.getSnapshot();
+  assert.equal(liveSnapshot.source, 'openf1-live');
+  assert.equal(liveSnapshot.circuitShortName, null);
+  assert.equal(liveSnapshot.meetingKey, null);
 });
