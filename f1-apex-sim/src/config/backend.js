@@ -2,7 +2,7 @@ const stripTrailingSlash = (value = '') => value.replace(/\/+$/, '');
 
 const configuredHttpUrl = stripTrailingSlash(import.meta.env.VITE_BACKEND_HTTP_URL ?? '');
 
-export const BACKEND_HTTP_URL = configuredHttpUrl || 'http://localhost:3001';
+export const BACKEND_HTTP_URL = configuredHttpUrl || 'http://localhost:8787';
 
 const deriveWebSocketUrl = (httpUrl) => {
   try {
@@ -13,7 +13,7 @@ const deriveWebSocketUrl = (httpUrl) => {
     url.hash = '';
     return url.toString();
   } catch {
-    return 'ws://localhost:3001/ws/live';
+    return 'ws://localhost:8787/ws/live';
   }
 };
 
@@ -35,4 +35,3 @@ export const backendWsUrl = (params = {}) => {
   });
   return url.toString();
 };
-
