@@ -48,6 +48,7 @@ export const useLiveGateway = ({ enabled = true, circuitId = null } = {}) => {
   const socketRef = useRef(null);
   const reconnectTimerRef = useRef(null);
   const heartbeatTimerRef = useRef(null);
+  const heartbeatPingRef = useRef(null);
   const snapshotFrameRef = useRef(null);
   const pendingSnapshotRef = useRef(null);
   const connectRef = useRef(null);
@@ -64,9 +65,11 @@ export const useLiveGateway = ({ enabled = true, circuitId = null } = {}) => {
     const clearTimers = () => {
       window.clearTimeout(reconnectTimerRef.current);
       window.clearTimeout(heartbeatTimerRef.current);
+      window.clearInterval(heartbeatPingRef.current);
       window.cancelAnimationFrame(snapshotFrameRef.current);
       reconnectTimerRef.current = null;
       heartbeatTimerRef.current = null;
+      heartbeatPingRef.current = null;
       snapshotFrameRef.current = null;
       pendingSnapshotRef.current = null;
     };
@@ -127,6 +130,11 @@ export const useLiveGateway = ({ enabled = true, circuitId = null } = {}) => {
         setReconnectInMs(null);
         setConnectionState('connecting');
         socket.send(JSON.stringify({ type: 'subscribe', channel: 'live', circuitId }));
+        heartbeatPingRef.current = window.setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'ping', at: Date.now() }));
+          }
+        }, 15_000);
         armHeartbeatGuard();
       });
 
@@ -164,6 +172,7 @@ export const useLiveGateway = ({ enabled = true, circuitId = null } = {}) => {
         if (socket !== socketRef.current) return;
         socketRef.current = null;
         window.clearTimeout(heartbeatTimerRef.current);
+        window.clearInterval(heartbeatPingRef.current);
         scheduleReconnect();
       });
     };

@@ -36,7 +36,12 @@ const serverProjectedPoint = (location, geometry) => {
   };
 };
 
-export const useProjectedLivePositions = ({ snapshot, circuit, geometry }) => {
+export const useProjectedLivePositions = ({
+  snapshot,
+  circuit,
+  geometry,
+  calibrationSamples = null,
+}) => {
   const [positions, setPositions] = useState([]);
   const serviceRef = useRef(new CircuitProjectionService({
     maxSourceSpeed: Infinity,
@@ -68,8 +73,15 @@ export const useProjectedLivePositions = ({ snapshot, circuit, geometry }) => {
     const sessionIdentity = createProjectionCacheKey(circuitId, sessionKey);
     if (lastSessionRef.current !== sessionIdentity) {
       serviceRef.current.clear();
-      samplesRef.current = [];
-      sampleIdsRef.current.clear();
+      const samples = Array.isArray(calibrationSamples)
+        ? calibrationSamples.filter((sample) => (
+          Number.isFinite(Number(sample?.x)) && Number.isFinite(Number(sample?.y))
+        )).slice(0, MAX_CALIBRATION_SAMPLES)
+        : [];
+      samplesRef.current = samples;
+      sampleIdsRef.current = new Set(samples.map((location, index) => (
+        `${location.driverNumber ?? location.driver_number ?? 'replay'}:${location._id ?? location.date ?? location.timeMs ?? index}`
+      )));
       lastSessionRef.current = sessionIdentity;
     }
 
@@ -134,7 +146,7 @@ export const useProjectedLivePositions = ({ snapshot, circuit, geometry }) => {
       active = false;
       window.cancelAnimationFrame(frameId);
     };
-  }, [circuit?.id, geometry, snapshot]);
+  }, [calibrationSamples, circuit?.id, geometry, snapshot]);
 
   return positions;
 };
