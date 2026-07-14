@@ -35,7 +35,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: 'Orbitron', sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(1rem, 2.3vw, 1.65rem);
   font-weight: 900;
   letter-spacing: 2px;
@@ -58,7 +58,7 @@
   align-items: center;
   gap: 10px;
   color: var(--neon-cyan);
-  font-family: 'Orbitron', sans-serif;
+  font-family: var(--font-display);
   font-size: 0.8rem;
   font-weight: 700;
   text-shadow: 0 0 10px rgba(0, 229, 255, 0.45);
@@ -89,7 +89,7 @@
   justify-items: center;
   gap: 16px;
   color: var(--neon-cyan);
-  font-family: 'Orbitron', sans-serif;
+  font-family: var(--font-display);
   font-weight: 800;
   letter-spacing: 1.8px;
   text-transform: uppercase;
@@ -138,7 +138,7 @@
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.86);
   color: #fff;
-  font-family: 'Orbitron', sans-serif;
+  font-family: var(--font-display);
   font-size: 0.72rem;
   font-weight: 900;
   box-shadow: 0 0 14px rgba(255, 255, 255, 0.36);
@@ -223,7 +223,7 @@
   border-radius: 8px;
   background: rgba(255, 20, 147, 0.16);
   color: #ff8ad0;
-  font-family: 'Orbitron', sans-serif;
+  font-family: var(--font-display);
   font-size: 0.7rem;
   font-weight: 900;
   box-shadow: 0 0 16px rgba(255, 20, 147, 0.5);
@@ -262,10 +262,31 @@
     0 0 16px color-mix(in srgb, var(--team-color), transparent 32%),
     inset 0 0 14px rgba(255, 255, 255, 0.06);
   color: #fff;
-  font-family: 'Orbitron', sans-serif;
+  font-family: var(--font-display);
   font-size: 0.66rem;
   font-weight: 900;
   transition: left 110ms linear, top 110ms linear;
+  padding: 0;
+  cursor: pointer;
+  appearance: none;
+}
+
+.vehicle-marker:hover,
+.vehicle-marker.selected {
+  transform: translate(-50%, -50%) scale(1.16);
+  z-index: 13;
+  background: color-mix(in srgb, var(--team-color), #05070a 72%);
+}
+
+.vehicle-marker.selected {
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.82),
+    0 0 22px var(--team-color);
+}
+
+.vehicle-marker.stale {
+  opacity: 0.48;
+  filter: grayscale(0.75);
 }
 
 .replay-badge {
@@ -317,7 +338,7 @@
   background: rgba(0, 0, 0, 0.72);
   color: #fff;
   padding: 10px 22px;
-  font-family: 'Orbitron', sans-serif;
+  font-family: var(--font-display);
   font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 1.4px;
