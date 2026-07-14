@@ -19,11 +19,13 @@ test('OpenF1 proxy permits only known read-only data endpoints and filters', asy
   });
   const value = await proxy.fetchOpenF1('location', {
     session_key: '123',
-    'date>=': '2026-01-01T00:00:00Z',
+    'date>': '2026-01-01T00:00:00Z',
   });
   assert.equal(value[0].session_key, 1);
   assert.equal(requestedUrl.hostname, 'api.openf1.org');
   assert.equal(requestedUrl.searchParams.get('session_key'), '123');
+  assert.equal(requestedUrl.searchParams.get('date>'), '2026-01-01T00:00:00Z');
+  assert.match(requestedUrl.search, /date%3E=2026-01-01/);
   await assert.rejects(proxy.fetchOpenF1('token', {}), SafeProxyError);
   await assert.rejects(proxy.fetchOpenF1('location', { password: 'nope' }), SafeProxyError);
 });
