@@ -18,6 +18,9 @@ const TrackCanvas = ({
   telemetryBounds = null,
   telemetryGeometry = null,
   replayStatus = 'idle',
+  sourceLabel = null,
+  selectedDriverNumber = null,
+  onVehicleSelect = null,
 }) => {
   const canvasRef = useRef(null);
   const rendererRef = useRef(null);
@@ -67,7 +70,9 @@ const TrackCanvas = ({
 
   const vehicleMarkers = useMemo(() => telemetryPositions
     .map((position) => {
-      const projected = projectTelemetryPoint(position, geometry, telemetryBounds);
+      const projected = position.projected
+        ?? position.trackPoint
+        ?? projectTelemetryPoint(position, geometry, telemetryBounds);
       const screen = worldToScreen(projected, camera);
       if (!screen) return null;
 
@@ -217,23 +222,27 @@ const TrackCanvas = ({
         })()}
 
         {vehicleMarkers.map((vehicle) => (
-          <div
+          <button
+            type="button"
             key={vehicle.driverNumber}
-            className="vehicle-marker"
+            className={`vehicle-marker${vehicle.stale ? ' stale' : ''}${String(selectedDriverNumber) === String(vehicle.driverNumber) ? ' selected' : ''}`}
             style={{
               left: `${vehicle.screen.x}px`,
               top: `${vehicle.screen.y}px`,
               '--team-color': vehicle.color,
             }}
             title={vehicle.driverName}
+            aria-label={`Select ${vehicle.driverName}`}
+            aria-pressed={String(selectedDriverNumber) === String(vehicle.driverNumber)}
+            onClick={() => onVehicleSelect?.(vehicle.driverNumber)}
           >
             <span>{vehicle.acronym}</span>
-          </div>
+          </button>
         ))}
 
-        {replayStatus === 'ready' && (
+        {(sourceLabel || replayStatus === 'ready') && (
           <div className="replay-badge">
-            Historical replay
+            {sourceLabel ?? 'Historical replay'}
           </div>
         )}
       </div>
