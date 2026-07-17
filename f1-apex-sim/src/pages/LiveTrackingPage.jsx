@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../layout/PageShell';
-import TrackCanvas from '../components/TrackCanvas';
+import LiveTrack3D from '../features/live/LiveTrack3D';
 import { useCircuits } from '../hooks/useCircuits';
 import { useLiveGateway } from '../hooks/useLiveGateway';
 import { useTelemetryReplay } from '../hooks/useTelemetryReplay';
@@ -193,16 +193,12 @@ const LiveTrackingPage = () => {
             </div>
           )}
           {geometryState.status === 'ready' && track && (
-            <TrackCanvas
+            <LiveTrack3D
               track={track}
               telemetryPositions={positions}
-              telemetryGeometry={track.geometry}
-              replayStatus={displaySnapshot?.status}
-              sourceLabel={sourceLabel(displaySnapshot?.source)}
               selectedDriverNumber={effectiveDriverNumber}
+              onSelectDriver={setSelectedDriverNumber}
               onVehicleSelect={setSelectedDriverNumber}
-              onSectorClick={() => {}}
-              selectedSector={null}
             />
           )}
         </section>
