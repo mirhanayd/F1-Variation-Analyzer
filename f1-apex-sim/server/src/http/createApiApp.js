@@ -48,12 +48,18 @@ export const createApiApp = ({
 }) => {
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', false);
+  // Trust only an explicit number of edge hops. The default never accepts a
+  // client-supplied forwarding header.
+  app.set('trust proxy', config.trustProxyHops > 0 ? config.trustProxyHops : false);
   app.use((request, response, next) => {
     response.setHeader('x-content-type-options', 'nosniff');
     response.setHeader('referrer-policy', 'no-referrer');
     response.setHeader('cache-control', 'no-store');
     const origin = allowedOrigin(request.headers.origin, config.frontendOrigins);
+    if (request.headers.origin && !origin) {
+      response.status(403).json({ error: 'Origin is not allowed by the live gateway' });
+      return;
+    }
     if (origin) {
       response.setHeader('access-control-allow-origin', origin);
       response.setHeader('vary', 'Origin');
@@ -143,13 +149,31 @@ export const createApiApp = ({
 
   app.get('/api/replay/sessions', async (request, response) => {
     try {
-      const requestedCircuit = request.query.circuitId ?? request.query.circuit;
+      const requestedCircuit = request.query.circuitShortName
+        ?? request.query.circuitId
+        ?? request.query.circuit;
       const circuitShortName = typeof requestedCircuit === 'string'
         ? requestedCircuit.slice(0, 80)
         : null;
       response.json({ sessions: await replayService.listSessions({ circuitShortName }) });
     } catch {
       response.status(503).json({ error: 'Replay catalog is temporarily unavailable' });
+    }
+  });
+
+  app.get('/api/replay/latest', async (request, response) => {
+    const circuitShortName = typeof request.query.circuitShortName === 'string'
+      ? request.query.circuitShortName.slice(0, 80)
+      : null;
+    try {
+      const replay = await replayService.getLatestReplay({ circuitShortName });
+      if (!replay) {
+        response.status(404).json({ error: 'No completed replay is available for this circuit' });
+        return;
+      }
+      response.json(replay);
+    } catch {
+      response.status(503).json({ error: 'Latest replay is temporarily unavailable' });
     }
   });
 

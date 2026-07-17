@@ -54,7 +54,12 @@ live timing:
 
 Server connection settings include `OPENF1_TOKEN_URL`, `OPENF1_MQTT_HOST`,
 `OPENF1_MQTT_PORT`, `OPENF1_MQTT_WS_URL`, `LIVE_GATEWAY_PORT`, and
-`FRONTEND_ORIGIN`. Never prefix a sponsor secret with `VITE_`.
+`FRONTEND_ORIGIN`. `LIVE_GATEWAY_HOST` defaults to loopback; set it explicitly
+for a container/LAN deployment. Configure `LIVE_TRUST_PROXY_HOPS` only for the
+exact trusted TLS proxy path. For a private sponsor feed, enforce user/session
+authentication at that trusted edge; CORS and WebSocket Origin checks are
+defence-in-depth, not user authentication. Never prefix a sponsor secret with
+`VITE_`.
 
 The gateway exposes:
 
@@ -64,6 +69,7 @@ The gateway exposes:
 - `GET /api/live/snapshot`
 - `WS /ws/live`
 - `GET /api/replay/sessions`
+- `GET /api/replay/latest?circuitShortName=...`
 - `GET /api/replay/:sessionKey`
 - allowlisted historical proxies under `/api/openf1/*` and `/api/jolpica/*`
 
@@ -130,4 +136,3 @@ Android means the device itself, and the configured secure WebView does not
 allow a production HTTPS app to connect to insecure HTTP/WS.
 
 PITWALL is unofficial and is not associated with Formula 1.
-

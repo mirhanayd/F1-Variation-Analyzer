@@ -75,6 +75,7 @@ const toDisplayGeometry = (geojson) => {
 };
 
 const potentialRegistryExports = (module) => [
+  module.CIRCUIT_MANIFEST,
   module.CIRCUIT_REGISTRY,
   module.circuitRegistry,
   module.CIRCUITS,
@@ -156,6 +157,7 @@ export const loadCanonicalCircuits = async (projectionService, {
 
   let aliasCount = [...metadataById.values()].reduce((sum, item) => sum + item.aliases.length, 0);
   const registryPaths = [
+    path.join(root, 'src', 'data', 'circuits', 'circuitManifest.js'),
     path.join(root, 'src', 'data', 'circuits', 'circuitRegistry.js'),
     path.join(root, 'src', 'data', 'circuitRegistry.js'),
   ];

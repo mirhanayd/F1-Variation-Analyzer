@@ -4,7 +4,9 @@ import path from 'node:path';
 const OPENF1_FIRST_YEAR = 2023;
 const HISTORICAL_DELAY_MS = 30 * 60 * 1_000;
 const MAX_LOCAL_REPLAY_BYTES = 100 * 1024 * 1024;
-const MAX_REMOTE_RESPONSE_BYTES = 50 * 1024 * 1024;
+const MAX_REMOTE_RESPONSE_BYTES = 16 * 1024 * 1024;
+const MAX_REMOTE_CACHE_ENTRIES = 3;
+const MAX_REMOTE_PENDING_REPLAYS = 4;
 
 const wait = (milliseconds) => new Promise((resolve) => {
   const timer = setTimeout(resolve, milliseconds);
@@ -35,9 +37,9 @@ const publicReplayMetadata = (entry) => {
     id: entry.id,
     sessionKey: session?.session_key ?? session?.sessionKey ?? entry.id,
     meetingKey: meeting?.meeting_key ?? meeting?.meetingKey ?? session?.meeting_key ?? null,
-    sessionName: session?.session_name ?? session?.sessionName ?? null,
-    meetingName: meeting?.meeting_name ?? meeting?.meetingName ?? meeting?.location ?? null,
-    circuitShortName: meeting?.circuit_short_name ?? session?.circuit_short_name ?? null,
+    sessionName: session?.session_name ?? session?.sessionName ?? session?.name ?? null,
+    meetingName: meeting?.meeting_name ?? meeting?.meetingName ?? meeting?.location ?? session?.meetingName ?? null,
+    circuitShortName: meeting?.circuit_short_name ?? session?.circuit_short_name ?? session?.circuitName ?? null,
     dateStart: session?.date_start ?? session?.dateStart ?? entry.replay?.window?.start ?? null,
     source: entry.source,
   };
@@ -53,6 +55,7 @@ export class HistoricalReplayService {
     this.now = now;
     this.generatedCache = null;
     this.remoteCache = new Map();
+    this.remotePending = new Map();
     this.lastApiRequestAt = 0;
     this.apiQueue = Promise.resolve();
   }
@@ -154,29 +157,60 @@ export class HistoricalReplayService {
   async #fetchReplayPackage(session) {
     const sessionKey = String(session.session_key);
     const cached = this.remoteCache.get(sessionKey);
-    if (cached && this.now() - cached.cachedAt < 30 * 60 * 1_000) return cached.replay;
+    if (cached && this.now() - cached.cachedAt < 30 * 60 * 1_000) {
+      this.remoteCache.delete(sessionKey);
+      this.remoteCache.set(sessionKey, cached);
+      return cached.replay;
+    }
+    if (cached) this.remoteCache.delete(sessionKey);
+    if (this.remotePending.has(sessionKey)) return this.remotePending.get(sessionKey);
+    if (this.remotePending.size >= MAX_REMOTE_PENDING_REPLAYS) {
+      throw new Error('Replay service is busy; retry shortly');
+    }
 
-    const startMs = Date.parse(session.date_start);
-    const endMs = Math.min(Date.parse(session.date_end), startMs + this.config.windowMs);
-    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return null;
+    const pending = this.#loadRemoteReplay(session, sessionKey)
+      .finally(() => this.remotePending.delete(sessionKey));
+    this.remotePending.set(sessionKey, pending);
+    return pending;
+  }
+
+  async #loadRemoteReplay(session, sessionKey) {
+    const scheduledStartMs = Date.parse(session.date_start);
+    const sessionEndMs = Date.parse(session.date_end);
+    if (!Number.isFinite(scheduledStartMs) || !Number.isFinite(sessionEndMs)) return null;
+    const meetings = await this.#fetchJson('meetings', { meeting_key: session.meeting_key });
+    const drivers = await this.#fetchOptional('drivers', { session_key: session.session_key });
+    const allLaps = await this.#fetchOptional('laps', { session_key: session.session_key });
+    const firstLapMs = allLaps
+      .map((lap) => Date.parse(lap.date_start ?? lap.date))
+      .filter((value) => Number.isFinite(value) && value >= scheduledStartMs && value <= sessionEndMs)
+      .sort((left, right) => left - right)[0];
+    // Some historical sessions begin publishing location data at the scheduled
+    // session time but do not publish race timing until much later. If the first
+    // lap lies beyond the normal replay window, move the window to the first
+    // real lap instead of returning an apparently valid location-only replay.
+    const startMs = Number.isFinite(firstLapMs) && firstLapMs > scheduledStartMs + this.config.windowMs
+      ? Math.max(scheduledStartMs, firstLapMs - 30_000)
+      : scheduledStartMs;
+    const endMs = Math.min(sessionEndMs, startMs + this.config.windowMs);
+    if (endMs <= startMs) return null;
     const dateStart = new Date(startMs).toISOString();
     const dateEnd = new Date(endMs).toISOString();
 
-    const meetings = await this.#fetchJson('meetings', { meeting_key: session.meeting_key });
-    const drivers = await this.#fetchOptional('drivers', { session_key: session.session_key });
     const dateParams = {
       session_key: session.session_key,
-      'date>=': dateStart,
-      'date<=': dateEnd,
+      // URLSearchParams supplies the `=` delimiter. OpenF1's `date>=value`
+      // syntax therefore uses `date>` as the parameter key (and likewise `<`).
+      'date>': dateStart,
+      'date<': dateEnd,
     };
     const location = await this.#fetchOptional('location', dateParams);
     const carData = await this.#fetchOptional('car_data', dateParams);
     const position = await this.#fetchOptional('position', dateParams);
     const intervals = await this.#fetchOptional('intervals', dateParams);
-    const laps = await this.#fetchOptional('laps', {
-      session_key: session.session_key,
-      'date_start>=': dateStart,
-      'date_start<=': dateEnd,
+    const laps = allLaps.filter((lap) => {
+      const timestamp = Date.parse(lap.date_start ?? lap.date);
+      return Number.isFinite(timestamp) && timestamp >= startMs && timestamp <= endMs;
     });
 
     const replay = {
@@ -192,6 +226,9 @@ export class HistoricalReplayService {
       window: { start: dateStart, end: dateEnd, durationMs: endMs - startMs },
     };
     this.remoteCache.set(sessionKey, { cachedAt: this.now(), replay });
+    while (this.remoteCache.size > MAX_REMOTE_CACHE_ENTRIES) {
+      this.remoteCache.delete(this.remoteCache.keys().next().value);
+    }
     return replay;
   }
 
@@ -225,6 +262,10 @@ export class HistoricalReplayService {
       } finally {
         clearTimeout(timeout);
       }
+      // OpenF1 uses 404 for a valid query that has no matching historical
+      // records. Treat that as an empty result so callers can return a clean
+      // replay-not-found state instead of misreporting an upstream outage.
+      if (response.status === 404) return [];
       if (!response.ok) throw new Error(`OpenF1 historical request failed (${response.status})`);
       const text = await response.text();
       if (Buffer.byteLength(text) > MAX_REMOTE_RESPONSE_BYTES) {

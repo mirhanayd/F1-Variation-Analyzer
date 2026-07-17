@@ -23,6 +23,8 @@ const JOLPICA_PATHS = Object.freeze([
 
 const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
 const MAX_CACHE_ENTRIES = 200;
+const MAX_CACHE_ENTRY_BYTES = 8 * 1024 * 1024;
+const MAX_CACHE_BYTES = 64 * 1024 * 1024;
 
 export class SafeProxyError extends Error {
   constructor(message, status = 400) {
@@ -55,6 +57,7 @@ export class SafeHistoricalProxy {
     this.fetchImpl = fetchImpl;
     this.now = now;
     this.cache = new Map();
+    this.cacheBytes = 0;
   }
 
   getAllowedOpenF1Endpoints() {
@@ -107,7 +110,16 @@ export class SafeHistoricalProxy {
   async #fetchJson(url, cacheTtlMs) {
     const cacheKey = url.toString();
     const cached = this.cache.get(cacheKey);
-    if (cached && this.now() - cached.cachedAt < cacheTtlMs) return cached.value;
+    if (cached && this.now() - cached.cachedAt < cacheTtlMs) {
+      // Refresh insertion order to make the bounded map a small LRU cache.
+      this.cache.delete(cacheKey);
+      this.cache.set(cacheKey, cached);
+      return cached.value;
+    }
+    if (cached) {
+      this.cache.delete(cacheKey);
+      this.cacheBytes -= cached.bytes;
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25_000);
@@ -131,7 +143,8 @@ export class SafeHistoricalProxy {
       throw new SafeProxyError('Historical response is too large', 502);
     }
     const text = await response.text();
-    if (Buffer.byteLength(text) > MAX_RESPONSE_BYTES) {
+    const responseBytes = Buffer.byteLength(text);
+    if (responseBytes > MAX_RESPONSE_BYTES) {
       throw new SafeProxyError('Historical response is too large', 502);
     }
     let value;
@@ -140,8 +153,19 @@ export class SafeHistoricalProxy {
     } catch {
       throw new SafeProxyError('Historical upstream returned invalid JSON', 502);
     }
-    this.cache.set(cacheKey, { cachedAt: this.now(), value });
-    while (this.cache.size > MAX_CACHE_ENTRIES) this.cache.delete(this.cache.keys().next().value);
+    // Large telemetry windows can legitimately be returned, but retaining many
+    // parsed copies would make the public read-only proxy an easy memory-DoS
+    // target. Oversized entries are streamed back without being cached.
+    if (responseBytes <= MAX_CACHE_ENTRY_BYTES) {
+      this.cache.set(cacheKey, { cachedAt: this.now(), value, bytes: responseBytes });
+      this.cacheBytes += responseBytes;
+      while (this.cache.size > MAX_CACHE_ENTRIES || this.cacheBytes > MAX_CACHE_BYTES) {
+        const oldestKey = this.cache.keys().next().value;
+        const oldest = this.cache.get(oldestKey);
+        this.cache.delete(oldestKey);
+        this.cacheBytes -= oldest?.bytes ?? 0;
+      }
+    }
     return value;
   }
 }

@@ -3,9 +3,21 @@ import { WebSocket, WebSocketServer } from 'ws';
 const LOCAL_ORIGIN = /^(https?|capacitor):\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
 
 const isOriginAllowed = (origin, configuredOrigins) => {
+  if (configuredOrigins.length > 0) return Boolean(origin) && configuredOrigins.includes(origin);
   if (!origin) return true;
-  if (configuredOrigins.length > 0) return configuredOrigins.includes(origin);
   return LOCAL_ORIGIN.test(origin);
+};
+
+const clientIpFromRequest = (request, trustProxyHops = 0) => {
+  const socketIp = request.socket.remoteAddress || 'unknown';
+  if (!trustProxyHops) return socketIp;
+  const forwarded = String(request.headers['x-forwarded-for'] ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (forwarded.length === 0) return socketIp;
+  const chain = [...forwarded, socketIp];
+  return chain[Math.max(0, chain.length - 1 - trustProxyHops)] ?? socketIp;
 };
 
 export class LiveWebSocketGateway {
@@ -66,7 +78,7 @@ export class LiveWebSocketGateway {
 
     if (pathname !== '/ws/live') return;
     const origin = request.headers.origin;
-    const clientIp = request.socket.remoteAddress || 'unknown';
+    const clientIp = clientIpFromRequest(request, this.config.trustProxyHops);
     const perIpCount = this.clientsByIp.get(clientIp) || 0;
     if (
       !isOriginAllowed(origin, this.config.frontendOrigins)
@@ -166,4 +178,4 @@ export class LiveWebSocketGateway {
   }
 }
 
-export { isOriginAllowed };
+export { clientIpFromRequest, isOriginAllowed };

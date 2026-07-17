@@ -23,7 +23,7 @@ try {
   const address = await runtime.start();
   const publicConfig = getPublicConfig(config);
   process.stdout.write([
-    `PITWALL live gateway listening on port ${address.port}`,
+    `PITWALL live gateway listening on ${address.address}:${address.port}`,
     `OpenF1 sponsor credentials: ${publicConfig.liveCredentialsConfigured ? 'configured' : 'not configured (historical fallback)'}`,
     `OpenF1 transport: ${publicConfig.mqttTransport}`,
   ].join('\n') + '\n');

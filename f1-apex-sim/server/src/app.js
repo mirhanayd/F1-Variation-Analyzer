@@ -59,6 +59,7 @@ export const createGatewayRuntime = (config, overrides = {}) => {
   websocketGateway = new LiveWebSocketGateway({ server, store, config: {
     ...config.live,
     frontendOrigins: config.frontendOrigins,
+    trustProxyHops: config.trustProxyHops,
   } });
 
   let started = false;
@@ -80,7 +81,7 @@ export const createGatewayRuntime = (config, overrides = {}) => {
       coordinator.start();
       await new Promise((resolve, reject) => {
         server.once('error', reject);
-        server.listen(config.port, () => {
+        server.listen(config.port, config.host, () => {
           server.off('error', reject);
           resolve();
         });

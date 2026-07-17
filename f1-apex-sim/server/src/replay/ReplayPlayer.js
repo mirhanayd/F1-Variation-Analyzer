@@ -10,6 +10,18 @@ const flattenLocationMap = (value) => (
     ? Object.values(value).flatMap((records) => array(records))
     : []
 );
+const flattenSampleMap = (value) => (
+  value && !Array.isArray(value)
+    ? Object.entries(value).flatMap(([driverNumber, records]) => (
+      array(records).map((record) => ({ ...record, driverNumber: Number(driverNumber) }))
+    ))
+    : []
+);
+const driversOf = (replay) => (
+  Array.isArray(replay?.drivers)
+    ? replay.drivers
+    : Object.values(replay?.driversByNumber ?? {})
+);
 
 const topicRecords = (replay) => [
   ['v1/location', [
@@ -24,6 +36,7 @@ const topicRecords = (replay) => [
   ['v1/laps', array(replay.laps)],
   ['v1/race_control', [...array(replay.raceControl), ...array(replay.race_control)]],
   ['v1/weather', array(replay.weather)],
+  ['fastf1/sample', flattenSampleMap(replay.samplesByDriver)],
 ];
 
 export class ReplayPlayer extends EventEmitter {
@@ -95,13 +108,16 @@ export class ReplayPlayer extends EventEmitter {
     this.store.beginReplay({
       meeting,
       session,
-      message: 'Showing real OpenF1 historical replay data; this is not a live session.',
+      source: this.replay?.source,
+      message: this.replay?.source === 'fastf1-generated-replay'
+        ? 'Showing a real FastF1-generated historical replay; this is not a live session.'
+        : 'Showing real OpenF1 historical replay data; this is not a live session.',
     });
-    for (const driver of array(this.replay?.drivers)) {
+    for (const driver of driversOf(this.replay)) {
       this.store.apply('v1/drivers', driver, { receivedAt: this.now(), replay: true });
     }
     for (const event of this.immediate) {
-      this.store.apply(event.topic, event.data, { receivedAt: this.now(), replay: true });
+      this.#applyEvent(event);
     }
     this.cursor = 0;
     this.replayStartMs = this.events[0]?.timeMs ?? this.now();
@@ -118,7 +134,7 @@ export class ReplayPlayer extends EventEmitter {
       && processed < 10_000
     ) {
       const event = this.events[this.cursor];
-      this.store.apply(event.topic, event.data, { receivedAt: this.now(), replay: true });
+      this.#applyEvent(event);
       this.cursor += 1;
       processed += 1;
     }
@@ -127,5 +143,15 @@ export class ReplayPlayer extends EventEmitter {
       this.emit('looped');
       this.#resetLoop();
     }
+  }
+
+  #applyEvent(event) {
+    const options = { receivedAt: this.now(), replay: true };
+    if (event.topic === 'fastf1/sample') {
+      this.store.apply('v1/location', event.data, options);
+      this.store.apply('v1/car_data', event.data, options);
+      return;
+    }
+    this.store.apply(event.topic, event.data, options);
   }
 }

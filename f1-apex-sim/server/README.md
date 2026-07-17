@@ -14,8 +14,13 @@ copy .env.example .env   # use `cp` on macOS/Linux
 npm run dev
 ```
 
-The default listener is `http://localhost:8787`. Production should terminate
+The default listener is `http://127.0.0.1:8787`. Production should terminate
 TLS in front of the gateway and configure the frontend with an HTTPS/WSS URL.
+Set `LIVE_GATEWAY_HOST=0.0.0.0` only when direct LAN/container access is
+intentional. If a trusted reverse proxy is used, set `LIVE_TRUST_PROXY_HOPS` to
+its exact hop count so HTTP and WebSocket per-client rate limits see the real
+client address; keep the default `0` for direct/local use. A private sponsor
+feed should also be protected by authentication at that edge.
 
 Required only for sponsor live mode:
 
@@ -27,6 +32,7 @@ Important server settings:
 - `OPENF1_TOKEN_URL`, `OPENF1_MQTT_HOST`, `OPENF1_MQTT_PORT`
 - `OPENF1_MQTT_WS_URL` and `OPENF1_MQTT_TRANSPORT=mqtts|wss`
 - `LIVE_GATEWAY_PORT`
+- `LIVE_GATEWAY_HOST` and `LIVE_TRUST_PROXY_HOPS`
 - `FRONTEND_ORIGIN` (comma-separated exact origins in production)
 
 Tokens, passwords, and MQTT credentials are never returned by an endpoint or
@@ -41,6 +47,7 @@ sent over `/ws/live`. The browser should only use `VITE_BACKEND_HTTP_URL` and
 - `GET /api/live/snapshot`
 - `WS /ws/live`
 - `GET /api/replay/sessions`
+- `GET /api/replay/latest?circuitShortName=...`
 - `GET /api/replay/:sessionKey`
 - `GET /api/openf1/:endpoint` (strict historical endpoint/filter allowlist)
 - `GET /api/jolpica/...` (strict read-only path/query allowlist)

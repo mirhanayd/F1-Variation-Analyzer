@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url';
 const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const numberFromEnv = (name, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) => {
-  const value = Number(process.env[name]);
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const value = Number(raw);
   return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
 };
 
@@ -21,7 +23,9 @@ const originsFromEnv = (raw = '') => raw
 
 export const loadConfig = () => Object.freeze({
   env: process.env.NODE_ENV || 'development',
+  host: process.env.LIVE_GATEWAY_HOST?.trim() || '127.0.0.1',
   port: numberFromEnv('LIVE_GATEWAY_PORT', 8787, { min: 1, max: 65535 }),
+  trustProxyHops: numberFromEnv('LIVE_TRUST_PROXY_HOPS', 0, { min: 0, max: 10 }),
   frontendOrigins: originsFromEnv(process.env.FRONTEND_ORIGIN),
   openF1: Object.freeze({
     username: process.env.OPENF1_USERNAME?.trim() || '',
@@ -49,7 +53,7 @@ export const loadConfig = () => Object.freeze({
   replay: Object.freeze({
     generatedDirectory: path.resolve(serverRoot, 'generated-replays'),
     remoteFallback: booleanFromEnv('LIVE_REMOTE_REPLAY_FALLBACK', true),
-    windowMs: numberFromEnv('LIVE_REPLAY_WINDOW_MS', 120_000, { min: 10_000, max: 900_000 }),
+    windowMs: numberFromEnv('LIVE_REPLAY_WINDOW_MS', 300_000, { min: 10_000, max: 900_000 }),
     speed: numberFromEnv('LIVE_REPLAY_SPEED', 4, { min: 0.25, max: 64 }),
     apiMinIntervalMs: numberFromEnv('OPENF1_REPLAY_REQUEST_INTERVAL_MS', 400, { min: 170 }),
   }),
