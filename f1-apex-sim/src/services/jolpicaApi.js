@@ -18,6 +18,21 @@ class JolpicaService {
     return getRaces(data);
   }
 
+  async getDriverStandings(year = 'current', options = {}) {
+    const data = await this.request(`${year}/driverStandings.json`, { limit: 100 }, options);
+    return data?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings ?? [];
+  }
+
+  async getConstructorStandings(year = 'current', options = {}) {
+    const data = await this.request(`${year}/constructorStandings.json`, { limit: 100 }, options);
+    return data?.MRData?.StandingsTable?.StandingsLists?.[0]?.ConstructorStandings ?? [];
+  }
+
+  async getRaceClassification(year, round, options = {}) {
+    const data = await this.request(`${year}/${round}/results.json`, { limit: 100 }, options);
+    return data?.MRData?.RaceTable?.Races?.[0]?.Results ?? [];
+  }
+
   async getRaceResults(year, circuitId, options = {}) {
     const data = await this.request(`${year}/circuits/${circuitId}/results.json`, {
       limit: 100,
