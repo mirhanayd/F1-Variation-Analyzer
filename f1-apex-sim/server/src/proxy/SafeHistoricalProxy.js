@@ -19,6 +19,9 @@ const JOLPICA_PATHS = Object.freeze([
   /^circuits\/[a-zA-Z0-9_-]+\/(?:results|qualifying)\.json$/,
   /^(?:current|\d{4})\/\d{1,2}\/laps\/\d+\.json$/,
   /^circuits\/[a-zA-Z0-9_-]+\/fastest\/\d+\/results\.json$/,
+  /^(?:current|\d{4})\/driverStandings\.json$/,
+  /^(?:current|\d{4})\/constructorStandings\.json$/,
+  /^(?:current|\d{4})\/\d{1,2}\/results\.json$/,
 ]);
 
 const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;

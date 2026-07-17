@@ -8,6 +8,7 @@ const CircuitsPage = lazy(() => import('../pages/CircuitsPage'));
 const CircuitDetailPage = lazy(() => import('../pages/CircuitDetailPage'));
 const LiveTrackingPage = lazy(() => import('../pages/LiveTrackingPage'));
 const SimulationPage = lazy(() => import('../pages/SimulationPage'));
+const StandingsPage = lazy(() => import('../pages/StandingsPage'));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'));
 
 const routeLoading = (
@@ -37,6 +38,7 @@ export const router = createRouter([
       { path: 'circuits/:circuitSlug', element: withPageFallback(<CircuitDetailPage />) },
       { path: 'live', element: withPageFallback(<LiveTrackingPage />) },
       { path: 'simulation', element: withPageFallback(<SimulationPage />) },
+      { path: 'standings', element: withPageFallback(<StandingsPage />) },
       { path: '*', element: withPageFallback(<NotFoundPage />) },
     ],
   },

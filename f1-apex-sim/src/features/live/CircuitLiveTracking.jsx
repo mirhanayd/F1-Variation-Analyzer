@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import TrackCanvas from '../../components/TrackCanvas';
+import LiveTrack3D from './LiveTrack3D';
 import ReplayTelemetryPanel from '../../components/TelemetryPanel';
 import { useLiveGateway } from '../../hooks/useLiveGateway';
 import { useTelemetryReplay } from '../../hooks/useTelemetryReplay';
@@ -92,16 +92,12 @@ const CircuitLiveTracking = ({ circuit, geometry }) => {
       />
       <div className="live-workspace">
         <section className="live-map-panel">
-          <TrackCanvas
+          <LiveTrack3D
             track={track}
             telemetryPositions={positions}
-            telemetryGeometry={displayGeometry}
-            replayStatus={displaySnapshot?.status}
-            sourceLabel={sourceLabel(displaySnapshot?.source)}
             selectedDriverNumber={effectiveDriverNumber}
+            onSelectDriver={setSelectedDriverNumber}
             onVehicleSelect={setSelectedDriverNumber}
-            onSectorClick={() => {}}
-            selectedSector={null}
           />
         </section>
         <aside className="live-panel-stack">

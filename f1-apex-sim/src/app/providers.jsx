@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
+import { AudioProvider } from '../context/AudioContext';
 
 const createQueryClient = () => new QueryClient({
   defaultOptions: {
@@ -17,7 +18,9 @@ export const AppProviders = ({ children }) => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <AudioProvider>
+        {children}
+      </AudioProvider>
     </QueryClientProvider>
   );
 };
