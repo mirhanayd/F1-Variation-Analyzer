@@ -93,13 +93,36 @@ class DataManager {
         jolpicaApi.getRaceSchedule(year, options),
       ]);
 
-      return { year, meetings, sessions, races };
+      return {
+        year,
+        meetings: Array.isArray(meetings) ? meetings : [],
+        sessions: Array.isArray(sessions) ? sessions : [],
+        races: Array.isArray(races) ? races : [],
+      };
     }, { cacheTimeout: 30 * 60 * 1000 });
   }
 
   async getAllCircuits(options = {}) {
     return this.getOrFetch('all_circuits', () => jolpicaApi.getAllCircuits(options), {
       cacheTimeout: 24 * 60 * 60 * 1000,
+    });
+  }
+
+  async getDriverStandings(year, options = {}) {
+    return this.getOrFetch(`driver_standings_${year}`, () => jolpicaApi.getDriverStandings(year, options), {
+      cacheTimeout: 10 * 60 * 1000,
+    });
+  }
+
+  async getConstructorStandings(year, options = {}) {
+    return this.getOrFetch(`constructor_standings_${year}`, () => jolpicaApi.getConstructorStandings(year, options), {
+      cacheTimeout: 10 * 60 * 1000,
+    });
+  }
+
+  async getRaceClassification(year, round, options = {}) {
+    return this.getOrFetch(`race_classification_${year}_${round}`, () => jolpicaApi.getRaceClassification(year, round, options), {
+      cacheTimeout: 10 * 60 * 1000,
     });
   }
 
