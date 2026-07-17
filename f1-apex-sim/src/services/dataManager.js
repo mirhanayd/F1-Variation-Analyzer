@@ -82,8 +82,14 @@ class DataManager {
   async getSeasonSchedule(year, options = {}) {
     return this.getOrFetch(`season_schedule_${year}`, async () => {
       const [meetings, sessions, races] = await Promise.all([
-        openF1Api.getMeetings({ year }, options),
-        openF1Api.getSessions({ year }, options),
+        openF1Api.getMeetings({ year }, options).catch((err) => {
+          console.warn('OpenF1 meetings unavailable, falling back to Jolpica:', err.message);
+          return [];
+        }),
+        openF1Api.getSessions({ year }, options).catch((err) => {
+          console.warn('OpenF1 sessions unavailable, falling back to Jolpica:', err.message);
+          return [];
+        }),
         jolpicaApi.getRaceSchedule(year, options),
       ]);
 
