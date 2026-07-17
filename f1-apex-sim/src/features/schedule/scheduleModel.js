@@ -2,7 +2,7 @@ import {
   getCircuitById,
   getCircuitByOpenF1Name,
   normalizeCircuitId,
-} from '../../data/circuits';
+} from '../../data/circuits/index.js';
 
 export const SESSION_ORDER = [
   'Practice 1',
@@ -259,7 +259,11 @@ const buildRoundFromRace = (race, meetings, sessionsByMeeting, nowMs) => {
   };
 };
 
-export const normalizeSchedule = ({ meetings = [], sessions = [], races = [] }, nowMs = Date.now()) => {
+export const normalizeSchedule = (scheduleData = {}, nowMs = Date.now()) => {
+  const meetings = Array.isArray(scheduleData?.meetings) ? scheduleData.meetings : [];
+  const sessions = Array.isArray(scheduleData?.sessions) ? scheduleData.sessions : [];
+  const races = Array.isArray(scheduleData?.races) ? scheduleData.races : [];
+
   const sessionsByMeeting = groupSessionsByMeeting(sessions);
   const raceMeetings = meetings
     .filter((meeting) => !meeting.is_cancelled && meeting.meeting_name !== 'Pre-Season Testing')
