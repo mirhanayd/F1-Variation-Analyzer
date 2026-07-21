@@ -1,5 +1,8 @@
 import { sleep } from './httpClient';
 import backendApi from './backendApi';
+import { isGatewayDown, markGatewayDown, markGatewayUp, shouldRecheck } from './gatewayStatus';
+
+const OPENF1_DIRECT_URL = 'https://api.openf1.org/v1';
 const OPENF1_FIRST_YEAR = 2023;
 const HISTORICAL_WINDOW_DELAY_MS = 30 * 60 * 1000;
 
@@ -13,9 +16,48 @@ const isHistoricalSession = (session, nowMs = Date.now()) => {
   return Date.parse(session.date_end) + HISTORICAL_WINDOW_DELAY_MS < nowMs;
 };
 
+const directOpenF1Fetch = async (endpoint, params = {}, options = {}) => {
+  const url = new URL(`${OPENF1_DIRECT_URL}/${endpoint}`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+  });
+
+  const controller = new AbortController();
+  const callerSignal = options.signal;
+  const onCallerAbort = () => controller.abort(callerSignal?.reason);
+  callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
+  const timeout = setTimeout(() => controller.abort('Direct OpenF1 request timed out'), 20_000);
+
+  try {
+    const response = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error(`Direct OpenF1 request failed (${response.status})`);
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+    callerSignal?.removeEventListener('abort', onCallerAbort);
+  }
+};
+
 class OpenF1Service {
-  request(endpoint, params = {}, options = {}) {
-    return backendApi.openF1(endpoint, params, options);
+  async request(endpoint, params = {}, options = {}) {
+    if (isGatewayDown() && !shouldRecheck()) {
+      return directOpenF1Fetch(endpoint, params, options);
+    }
+
+    try {
+      const data = await backendApi.openF1(endpoint, params, { ...options, timeoutMs: 3_000 });
+      markGatewayUp();
+      return data;
+    } catch (err) {
+      if (err?.name === 'AbortError' || String(err?.message).includes('abort')) throw err;
+
+      console.warn('Gateway unavailable, falling back to direct OpenF1 API:', err?.message);
+      markGatewayDown();
+      return directOpenF1Fetch(endpoint, params, options);
+    }
   }
 
   getMeetings(params = {}, options = {}) {
