@@ -94,24 +94,76 @@ const DRIVER_HEADSHOTS = {
   doohan: 'https://www.formula1.com/content/dam/fom-website/drivers/J/JACDOO01_Jack_Doohan/jacdoo01.png.transform/1col/image.png',
 };
 
+const DRIVER_CODES = {
+  verstappen: 'maxver01',
+  hamilton: 'lewham01',
+  russell: 'georus01',
+  leclerc: 'chalec01',
+  sainz: 'carsai01',
+  norris: 'lannor01',
+  piastri: 'oscpia01',
+  perez: 'serper01',
+  alonso: 'feralo01',
+  stroll: 'lanstr01',
+  gasly: 'piegas01',
+  ocon: 'estoco01',
+  albon: 'alealb01',
+  sargeant: 'logsar01',
+  tsunoda: 'yuktsu01',
+  ricciardo: 'danric01',
+  bottas: 'valbot01',
+  zhou: 'zhogua01',
+  magnussen: 'kevmag01',
+  hulkenberg: 'nichul01',
+  bearman: 'olibea01',
+  colapinto: 'fracol01',
+  lawson: 'lialaw01',
+  hadjar: 'isahad01',
+  antonelli: 'andant01',
+  lindblad: 'arvlin01',
+  bortoleto: 'gabbor01',
+  doohan: 'jacdoo01',
+};
+
 const getDriverHeadshot = (familyName, year = '2024') => {
   return DRIVER_HEADSHOTS[familyName.toLowerCase()] ?? null;
 };
 
+const get2026DriverHeadshot = (familyName, teamName) => {
+  const code = DRIVER_CODES[familyName.toLowerCase()];
+  if (!code) return null;
+  
+  const normTeam = teamName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  let teamSlug = 'mercedes';
+  if (normTeam.includes('red_bull')) teamSlug = 'redbullracing';
+  else if (normTeam.includes('ferrari')) teamSlug = 'ferrari';
+  else if (normTeam.includes('mclaren')) teamSlug = 'mclaren';
+  else if (normTeam.includes('aston_martin')) teamSlug = 'astonmartin';
+  else if (normTeam.includes('alpine')) teamSlug = 'alpine';
+  else if (normTeam.includes('williams')) teamSlug = 'williams';
+  else if (normTeam.includes('haas')) teamSlug = 'haas';
+  else if (normTeam.includes('sauber') || normTeam.includes('audi') || normTeam.includes('stake')) teamSlug = 'audi';
+  else if (normTeam.includes('cadillac')) teamSlug = 'cadillac';
+  else if (normTeam.includes('rb') || normTeam.includes('racing_bulls') || normTeam.includes('alphatauri') || normTeam.includes('toro_rosso') || normTeam.includes('racingbulls')) teamSlug = 'racingbulls';
+  
+  return `https://media.formula1.com/image/upload/c_fill,w_720/q_auto/v1740000001/common/f1/2026/${teamSlug}/${code}/2026${teamSlug}${code}right.webp`;
+};
+
 const getTeamLogoUrl = (teamName = '') => {
   const norm = teamName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-  let slug = 'mercedes';
-  if (norm.includes('red_bull')) slug = 'red-bull-racing';
-  else if (norm.includes('ferrari')) slug = 'ferrari';
-  else if (norm.includes('mclaren')) slug = 'mclaren';
-  else if (norm.includes('aston_martin')) slug = 'aston-martin';
-  else if (norm.includes('alpine')) slug = 'alpine';
-  else if (norm.includes('williams')) slug = 'williams';
-  else if (norm.includes('haas')) slug = 'haas';
-  else if (norm.includes('sauber') || norm.includes('stake')) slug = 'kick-sauber';
-  else if (norm.includes('rb') || norm.includes('racing_bulls') || norm.includes('alphatauri') || norm.includes('toro_rosso')) slug = 'rb';
+  let teamSlug = 'mercedes';
+  if (norm.includes('red_bull')) teamSlug = 'redbullracing';
+  else if (norm.includes('ferrari')) teamSlug = 'ferrari';
+  else if (norm.includes('mclaren')) teamSlug = 'mclaren';
+  else if (norm.includes('aston_martin')) teamSlug = 'astonmartin';
+  else if (norm.includes('alpine')) teamSlug = 'alpine';
+  else if (norm.includes('williams')) teamSlug = 'williams';
+  else if (norm.includes('haas')) teamSlug = 'haas';
+  else if (norm.includes('sauber') || norm.includes('stake') || norm.includes('kick')) teamSlug = 'kicksauber';
+  else if (norm.includes('audi')) teamSlug = 'audi';
+  else if (norm.includes('rb') || norm.includes('racing_bulls') || norm.includes('alphatauri') || norm.includes('toro_rosso') || norm.includes('racingbulls')) teamSlug = 'racingbulls';
   
-  return `https://media.formula1.com/content/dam/fom-website/teams/2024/${slug}.png`;
+  return `https://media.formula1.com/image/upload/c_lfill,h_224/q_auto/d_common:f1:2026:fallback:car:2026fallbackcarright.webp/v1740000001/common/f1/2026/${teamSlug}/2026${teamSlug}carright.webp`;
 };
 
 const getCircuitAbbreviation = (race) => {
@@ -360,10 +412,12 @@ const StandingsPage = () => {
                         const teamName = entry.Constructors?.[0]?.name ?? 'Independent';
                         const teamColor = getTeamColor(teamName);
                         
-                        // Try to find headshot with wiki and static fallbacks
+                        // Try to find headshot (prefer official 2026 Cloudinary format for 2026 season)
                         const wikiUrl = entry.Driver?.url ?? '';
                         const wikiTitle = wikiUrl.includes('/wiki/') ? wikiUrl.split('/wiki/')[1].toLowerCase() : '';
-                        const headshot = wikiHeadshots[wikiTitle] ?? getDriverHeadshot(driverLastName, selectedYear);
+                        const headshot = Number(selectedYear) === 2026
+                          ? (get2026DriverHeadshot(driverLastName, teamName) ?? getDriverHeadshot(driverLastName, selectedYear))
+                          : (wikiHeadshots[wikiTitle] ?? getDriverHeadshot(driverLastName, selectedYear));
 
                         return (
                           <tr key={entry.Driver.driverId} className="standings-row">
@@ -413,7 +467,7 @@ const StandingsPage = () => {
                                   src={getTeamLogoUrl(teamName)} 
                                   alt={`${teamName} logo`}
                                   className="team-logo-img-small"
-                                  style={{ width: '18px', height: '18px', objectFit: 'contain', marginRight: '6px' }}
+                                  style={{ width: 'auto', height: '14px', objectFit: 'contain', marginRight: '6px' }}
                                   onError={(e) => {
                                     e.target.style.display = 'none';
                                   }}
@@ -466,12 +520,14 @@ const StandingsPage = () => {
                             </td>
                             <td className="col-team">
                               <div className="team-indicator-cell">
-                                <div className="team-logo-container" style={{ position: 'relative', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '8px' }}>
+                                <div className="team-logo-container" style={{ position: 'relative', width: '90px', height: '32px', display: 'flex', alignItems: 'center', marginRight: '12px' }}>
                                   <img 
                                     src={getTeamLogoUrl(teamName)} 
                                     alt={`${teamName} logo`}
                                     className="team-logo-img"
-                                    style={{ width: '28px', height: '28px', objectFit: 'contain' }}
+                                    style={{ height: '28px', width: 'auto', objectFit: 'contain', transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)', display: 'block' }}
+                                    onMouseEnter={(e) => { e.target.style.transform = 'translateX(6px) scale(1.08)'; }}
+                                    onMouseLeave={(e) => { e.target.style.transform = 'none'; }}
                                     onError={(e) => {
                                       e.target.style.display = 'none';
                                       e.target.nextSibling.style.display = 'flex';
@@ -573,7 +629,9 @@ const StandingsPage = () => {
                           const resultTime = entry.Time?.time ?? entry.status;
                           const wikiUrl = entry.Driver?.url ?? '';
                           const wikiTitle = wikiUrl.includes('/wiki/') ? wikiUrl.split('/wiki/')[1].toLowerCase() : '';
-                          const headshot = wikiHeadshots[wikiTitle] ?? getDriverHeadshot(driverLastName, selectedYear);
+                          const headshot = Number(selectedYear) === 2026
+                            ? (get2026DriverHeadshot(driverLastName, entry.Constructor.name) ?? getDriverHeadshot(driverLastName, selectedYear))
+                            : (wikiHeadshots[wikiTitle] ?? getDriverHeadshot(driverLastName, selectedYear));
                           
                           return (
                             <tr key={entry.Driver.driverId} className="standings-row">
@@ -618,7 +676,7 @@ const StandingsPage = () => {
                                     src={getTeamLogoUrl(entry.Constructor.name)} 
                                     alt={`${entry.Constructor.name} logo`}
                                     className="team-logo-img-small"
-                                    style={{ width: '18px', height: '18px', objectFit: 'contain', marginRight: '6px' }}
+                                    style={{ width: 'auto', height: '14px', objectFit: 'contain', marginRight: '6px' }}
                                     onError={(e) => {
                                       e.target.style.display = 'none';
                                     }}
