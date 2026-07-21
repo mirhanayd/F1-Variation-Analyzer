@@ -3028,6 +3028,7 @@ a {
   height: 42px;
   border-radius: 50%;
   object-fit: cover;
+  object-position: top center;
   background: rgba(255, 255, 255, 0.05);
   border: 1.5px solid var(--border-strong);
 }
