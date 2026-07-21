@@ -63,66 +63,147 @@ class DataManager {
     this.cacheTimeout = 5 * 60 * 1000;
   }
 
-  async getOrFetch(key, fetchFunction, { cacheTimeout = this.cacheTimeout } = {}) {
+  async getOrFetch(key, fetchFunction, { cacheTimeout = this.cacheTimeout, persist = false } = {}) {
     const cached = this.cache.get(key);
 
     if (cached && Date.now() - cached.timestamp < cacheTimeout) {
       return cached.data;
     }
 
-    const data = await fetchFunction();
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now(),
-    });
+    // Attempt to load fresh data from persistent storage before network request
+    if (persist) {
+      try {
+        const persisted = localStorage.getItem(`pw_cache_${key}`);
+        if (persisted) {
+          const parsed = JSON.parse(persisted);
+          if (Date.now() - parsed.timestamp < cacheTimeout) {
+            this.cache.set(key, parsed);
+            return parsed.data;
+          }
+        }
+      } catch (e) {
+        // ignore localStorage access errors
+      }
+    }
 
-    return data;
+    try {
+      const data = await fetchFunction();
+      const entry = { data, timestamp: Date.now() };
+      this.cache.set(key, entry);
+
+      if (persist) {
+        try {
+          localStorage.setItem(`pw_cache_${key}`, JSON.stringify(entry));
+        } catch (e) {
+          // ignore quota exceeded or access errors
+        }
+      }
+
+      return data;
+    } catch (err) {
+      if (err.name === 'AbortError' || String(err.message).includes('abort')) {
+        throw err;
+      }
+
+      // If fetch fails, try to return stale data (memory or persistent)
+      if (persist) {
+        if (cached) {
+          console.warn(`Fetch failed for ${key}, using stale memory cache:`, err.message);
+          return cached.data;
+        }
+        try {
+          const persisted = localStorage.getItem(`pw_cache_${key}`);
+          if (persisted) {
+            const parsed = JSON.parse(persisted);
+            console.warn(`Fetch failed for ${key}, using stale persisted data:`, err.message);
+            this.cache.set(key, parsed); // populate memory cache with stale data so we don't parse JSON repeatedly
+            return parsed.data;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      throw err;
+    }
   }
 
   async getSeasonSchedule(year, options = {}) {
     return this.getOrFetch(`season_schedule_${year}`, async () => {
-      const [meetings, sessions, races] = await Promise.all([
-        openF1Api.getMeetings({ year }, options).catch((err) => {
-          console.warn('OpenF1 meetings unavailable, falling back to Jolpica:', err.message);
-          return [];
-        }),
-        openF1Api.getSessions({ year }, options).catch((err) => {
-          console.warn('OpenF1 sessions unavailable, falling back to Jolpica:', err.message);
-          return [];
-        }),
-        jolpicaApi.getRaceSchedule(year, options),
-      ]);
+      try {
+        const [meetings, sessions, races] = await Promise.all([
+          openF1Api.getMeetings({ year }, options).catch((err) => {
+            console.warn('OpenF1 meetings unavailable, falling back to Jolpica:', err.message);
+            return [];
+          }),
+          openF1Api.getSessions({ year }, options).catch((err) => {
+            console.warn('OpenF1 sessions unavailable, falling back to Jolpica:', err.message);
+            return [];
+          }),
+          jolpicaApi.getRaceSchedule(year, options),
+        ]);
 
-      return {
-        year,
-        meetings: Array.isArray(meetings) ? meetings : [],
-        sessions: Array.isArray(sessions) ? sessions : [],
-        races: Array.isArray(races) ? races : [],
-      };
-    }, { cacheTimeout: 30 * 60 * 1000 });
+        if (Array.isArray(races) && races.length > 0) {
+          return {
+            year,
+            meetings: Array.isArray(meetings) ? meetings : [],
+            sessions: Array.isArray(sessions) ? sessions : [],
+            races,
+          };
+        }
+      } catch (err) {
+        if (err.name === 'AbortError' || err.message?.includes('abort')) {
+          throw err;
+        }
+        console.warn(`Failed to fetch online season schedule for ${year}:`, err.message);
+      }
+
+      // Local fallback for 2026 if online fetch failed or returned no races
+      if (Number(year) === 2026) {
+        console.log('Using local fallback schedule for 2026');
+        try {
+          const fallback = await import('../data/fallbackSchedule2026.js');
+          if (fallback && (fallback.fallbackRaces2026 || fallback.default)) {
+            return {
+              year,
+              meetings: [],
+              sessions: [],
+              races: fallback.fallbackRaces2026 || fallback.default,
+            };
+          }
+        } catch (err) {
+          console.error('Error importing local 2026 schedule fallback:', err);
+        }
+      }
+
+      throw new Error(`Schedule unavailable for year ${year}`);
+    }, { cacheTimeout: 30 * 60 * 1000, persist: true });
   }
 
   async getAllCircuits(options = {}) {
     return this.getOrFetch('all_circuits', () => jolpicaApi.getAllCircuits(options), {
       cacheTimeout: 24 * 60 * 60 * 1000,
+      persist: true,
     });
   }
 
   async getDriverStandings(year, options = {}) {
     return this.getOrFetch(`driver_standings_${year}`, () => jolpicaApi.getDriverStandings(year, options), {
       cacheTimeout: 10 * 60 * 1000,
+      persist: true,
     });
   }
 
   async getConstructorStandings(year, options = {}) {
     return this.getOrFetch(`constructor_standings_${year}`, () => jolpicaApi.getConstructorStandings(year, options), {
       cacheTimeout: 10 * 60 * 1000,
+      persist: true,
     });
   }
 
   async getRaceClassification(year, round, options = {}) {
     return this.getOrFetch(`race_classification_${year}_${round}`, () => jolpicaApi.getRaceClassification(year, round, options), {
       cacheTimeout: 10 * 60 * 1000,
+      persist: true,
     });
   }
 
@@ -139,7 +220,7 @@ class DataManager {
         stats: circuitStats,
         fetchedAt: new Date().toISOString(),
       };
-    });
+    }, { persist: true });
   }
 
   async getCircuitOutline(track, options = {}) {
