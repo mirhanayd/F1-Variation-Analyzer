@@ -1,11 +1,62 @@
 import backendApi from './backendApi';
+import { isGatewayDown, markGatewayDown, markGatewayUp, shouldRecheck } from './gatewayStatus';
+
+const JOLPICA_DIRECT_URL = 'https://api.jolpi.ca/ergast/f1';
 
 const getRaces = (data) => data?.MRData?.RaceTable?.Races ?? [];
 const getCircuits = (data) => data?.MRData?.CircuitTable?.Circuits ?? [];
 
+const toQueryString = (params = {}) => {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
+  });
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : '';
+};
+
+const directFetch = async (path, params = {}, options = {}) => {
+  const safePath = String(path).replace(/^\/+/, '');
+  const url = `${JOLPICA_DIRECT_URL}/${safePath}${toQueryString(params)}`;
+
+  const controller = new AbortController();
+  const callerSignal = options.signal;
+  const onCallerAbort = () => controller.abort(callerSignal?.reason);
+  callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
+  const timeout = setTimeout(() => controller.abort('Direct Jolpica request timed out'), 20_000);
+
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error(`Direct Jolpica request failed (${response.status})`);
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+    callerSignal?.removeEventListener('abort', onCallerAbort);
+  }
+};
+
 class JolpicaService {
-  request(path = '', params = {}, options = {}) {
-    return backendApi.jolpica(path, params, options);
+  async request(path = '', params = {}, options = {}) {
+    // If the gateway is known to be down and it's not time to recheck, go direct.
+    if (isGatewayDown() && !shouldRecheck()) {
+      return directFetch(path, params, options);
+    }
+
+    try {
+      const data = await backendApi.jolpica(path, params, { ...options, timeoutMs: 3_000 });
+      markGatewayUp();
+      return data;
+    } catch (err) {
+      // If the caller explicitly aborted, don't fallback — propagate immediately.
+      if (err?.name === 'AbortError' || String(err?.message).includes('abort')) throw err;
+
+      console.warn('Gateway unavailable, falling back to direct Jolpica API:', err?.message);
+      markGatewayDown();
+      return directFetch(path, params, options);
+    }
   }
 
   async getCircuit(circuitId, options = {}) {
