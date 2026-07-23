@@ -4,6 +4,8 @@ import PageShell from '../layout/PageShell';
 import dataManager from '../services/dataManager';
 import jolpicaApi from '../services/jolpicaApi';
 import { CIRCUIT_MANIFEST } from '../data/circuits';
+import { PreviousRoundCard } from '../features/schedule/RoundCards';
+import { normalizeSchedule } from '../features/schedule/scheduleModel';
 const STATIC_TEAM_COLORS = {
   mercedes: '#00D2BE',
   ferrari: '#DC0000',
@@ -239,23 +241,39 @@ const StandingsPage = () => {
   
   // Tabs: 'races', 'drivers', 'teams'
   const activeTab = searchParams.get('tab') ?? 'drivers';
+  const selectedRound = searchParams.get('round'); // Can be null
   
   // State for standings data
   const [driversStandings, setDriversStandings] = useState([]);
   const [teamsStandings, setTeamsStandings] = useState([]);
   const [racesList, setRacesList] = useState([]);
-  const [selectedRound, setSelectedRound] = useState('1');
   const [raceClassification, setRaceClassification] = useState([]);
   
   const [loading, setLoading] = useState(false);
   const [wikiHeadshots, setWikiHeadshots] = useState({});
 
+  const setSelectedRound = (roundNum) => {
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev);
+      params.set('round', roundNum);
+      return params;
+    });
+  };
+
   const handleYearChange = (year) => {
-    setSearchParams({ year, tab: activeTab });
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev);
+      params.set('year', year);
+      return params;
+    });
   };
 
   const handleTabChange = (tab) => {
-    setSearchParams({ year: selectedYear, tab });
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev);
+      params.set('tab', tab);
+      return params;
+    });
   };
 
   // Load standings and schedule metadata
@@ -270,16 +288,19 @@ const StandingsPage = () => {
         const schedule = await dataManager.getSeasonSchedule(yearNum).catch(() => ({ races: [] }));
         if (!active) return;
         
-        const races = schedule.races ?? [];
+        const normalized = normalizeSchedule(schedule, Date.now());
+        const races = normalized.rounds ?? [];
         setRacesList(races);
         
-        // Set default selected round to the first round, or the latest completed one
-        const now = new Date();
-        const completedRaces = races.filter(r => new Date(r.date) < now);
-        if (completedRaces.length > 0) {
-          setSelectedRound(String(completedRaces.at(-1).round));
-        } else if (races.length > 0) {
-          setSelectedRound('1');
+        // Set default selected round if not present in URL
+        const currentRoundParam = searchParams.get('round');
+        if (!currentRoundParam) {
+          const pastRaces = races.filter(r => r.status === 'past');
+          if (pastRaces.length > 0) {
+            setSelectedRound(String(pastRaces.at(-1).round));
+          } else if (races.length > 0) {
+            setSelectedRound(String(races[0].round));
+          }
         }
 
         // 2. Fetch driver & team standings
@@ -579,30 +600,23 @@ const StandingsPage = () => {
 
           {/* RACES CLASSIFICATION TAB */}
           {activeTab === 'races' && (
-            <div className="races-standings-split">
-              <div className="races-sidebar-panel">
-                <div className="panel-title-label">Rounds</div>
-                <div className="races-round-list">
-                  {racesList.length === 0 ? (
-                    <div className="no-races-notice">No races loaded.</div>
-                  ) : (
-                    racesList.map((race) => {
-                      const isSelected = selectedRound === String(race.round);
-                      const circuitAbbr = getCircuitAbbreviation(race);
-                      return (
-                        <button
-                          key={race.round}
-                          type="button"
-                          className={`race-round-item ${isSelected ? 'active' : ''}`}
-                          onClick={() => setSelectedRound(String(race.round))}
-                        >
-                          <span className="round-num">{circuitAbbr}</span>
-                          <span className="round-name">Round {race.round}</span>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
+            <div className="races-standings-split-cards" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div className="previous-rounds-scroll" role="list">
+                {racesList.length === 0 ? (
+                  <div className="no-races-notice" style={{ padding: '20px' }}>No races loaded.</div>
+                ) : (
+                  racesList.map((race) => {
+                    const isSelected = selectedRound === String(race.round);
+                    return (
+                      <PreviousRoundCard
+                        key={race.round}
+                        round={race}
+                        isActive={isSelected}
+                        onClick={() => setSelectedRound(String(race.round))}
+                      />
+                    );
+                  })
+                )}
               </div>
 
               <div className="races-results-classification">
