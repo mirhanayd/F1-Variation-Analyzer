@@ -163,6 +163,7 @@ const getTeamLogoUrl = (teamName = '') => {
   else if (norm.includes('haas')) teamSlug = 'haas';
   else if (norm.includes('sauber') || norm.includes('stake') || norm.includes('kick')) teamSlug = 'kicksauber';
   else if (norm.includes('audi')) teamSlug = 'audi';
+  else if (norm.includes('cadillac')) teamSlug = 'cadillac';
   else if (norm.includes('rb') || norm.includes('racing_bulls') || norm.includes('alphatauri') || norm.includes('toro_rosso') || norm.includes('racingbulls')) teamSlug = 'racingbulls';
   
   return `https://media.formula1.com/image/upload/c_lfill,h_224/q_auto/d_common:f1:2026:fallback:car:2026fallbackcarright.webp/v1740000001/common/f1/2026/${teamSlug}/2026${teamSlug}carright.webp`;
@@ -540,13 +541,13 @@ const StandingsPage = () => {
                               </span>
                             </td>
                             <td className="col-team">
-                              <div className="team-indicator-cell">
-                                <div className="team-logo-container" style={{ position: 'relative', width: '90px', height: '32px', display: 'flex', alignItems: 'center', marginRight: '12px' }}>
+                              <div className="team-indicator-cell" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                <div className="team-logo-container" style={{ position: 'relative', width: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                   <img 
                                     src={getTeamLogoUrl(teamName)} 
                                     alt={`${teamName} logo`}
                                     className="team-logo-img"
-                                    style={{ height: '28px', width: 'auto', objectFit: 'contain', transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)', display: 'block' }}
+                                    style={{ maxHeight: '28px', maxWidth: '100%', objectFit: 'contain', transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)', display: 'block' }}
                                     onMouseEnter={(e) => { e.target.style.transform = 'translateX(6px) scale(1.08)'; }}
                                     onMouseLeave={(e) => { e.target.style.transform = 'none'; }}
                                     onError={(e) => {
