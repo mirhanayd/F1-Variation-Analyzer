@@ -17,6 +17,7 @@ export const STATIC_TEAM_COLORS = {
   alfa_romeo: '#900000',
   alphatauri: '#4E7C9B',
   toro_rosso: '#469BFF',
+  cadillac: '#EAC31C',
 };
 
 export const DRIVER_HEADSHOTS = {
