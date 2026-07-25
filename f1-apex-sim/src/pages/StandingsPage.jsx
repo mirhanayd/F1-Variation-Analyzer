@@ -1,9 +1,7 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PageShell from '../layout/PageShell';
 import dataManager from '../services/dataManager';
-import jolpicaApi from '../services/jolpicaApi';
-import { CIRCUIT_MANIFEST } from '../data/circuits';
 import { PreviousRoundCard } from '../features/schedule/RoundCards';
 import { normalizeSchedule } from '../features/schedule/scheduleModel';
 const STATIC_TEAM_COLORS = {
@@ -127,7 +125,7 @@ const DRIVER_CODES = {
   doohan: 'jacdoo01',
 };
 
-const getDriverHeadshot = (familyName, year = '2024') => {
+const getDriverHeadshot = (familyName) => {
   return DRIVER_HEADSHOTS[familyName.toLowerCase()] ?? null;
 };
 
@@ -167,29 +165,6 @@ const getTeamLogoUrl = (teamName = '') => {
   else if (norm.includes('rb') || norm.includes('racing_bulls') || norm.includes('alphatauri') || norm.includes('toro_rosso') || norm.includes('racingbulls')) teamSlug = 'racingbulls';
   
   return `https://media.formula1.com/image/upload/c_lfill,h_224/q_auto/d_common:f1:2026:fallback:car:2026fallbackcarright.webp/v1740000001/common/f1/2026/${teamSlug}/2026${teamSlug}carright.webp`;
-};
-
-const getCircuitAbbreviation = (race) => {
-  const circuitId = race.Circuit?.circuitId;
-  const manifestMatch = CIRCUIT_MANIFEST.find(c => 
-    c.id === circuitId || 
-    c.slug === circuitId || 
-    c.aliases?.includes(circuitId) ||
-    c.name?.toLowerCase().includes(String(circuitId).toLowerCase())
-  );
-  
-  if (manifestMatch) {
-    return manifestMatch.commonName ?? manifestMatch.location;
-  }
-  
-  const locality = race.Circuit?.Location?.locality;
-  if (locality) return locality;
-  
-  if (race.raceName) {
-    return race.raceName.replace(' Grand Prix', '').replace(' GP', '');
-  }
-  
-  return `R${race.round}`;
 };
 
 const fetchWikiHeadshots = async (entries) => {
@@ -417,7 +392,7 @@ const StandingsPage = () => {
                 <div className="no-standings-notice">No driver standings available for this season yet.</div>
               ) : (
                 <div className="pw-table-container">
-                  <table className="pw-standings-table">
+                  <table className="pw-standings-table drivers-standings-table">
                     <thead>
                       <tr>
                         <th className="col-pos">POS.</th>
@@ -518,7 +493,7 @@ const StandingsPage = () => {
                 <div className="no-standings-notice">No team standings available for this season yet.</div>
               ) : (
                 <div className="pw-table-container">
-                  <table className="pw-standings-table">
+                  <table className="pw-standings-table teams-standings-table">
                     <thead>
                       <tr>
                         <th className="col-pos">POS.</th>
@@ -626,7 +601,7 @@ const StandingsPage = () => {
                   <div className="no-standings-notice">No classification results loaded for this round.</div>
                 ) : (
                   <div className="pw-table-container">
-                    <table className="pw-standings-table">
+                    <table className="pw-standings-table race-classification-table">
                       <thead>
                         <tr>
                           <th className="col-pos">POS.</th>

@@ -84,6 +84,11 @@ class JolpicaService {
     return data?.MRData?.RaceTable?.Races?.[0]?.Results ?? [];
   }
 
+  async getQualifyingClassification(year, round, options = {}) {
+    const data = await this.request(`${year}/${round}/qualifying.json`, { limit: 100 }, options);
+    return data?.MRData?.RaceTable?.Races?.[0]?.QualifyingResults ?? [];
+  }
+
   async getRaceResults(year, circuitId, options = {}) {
     const data = await this.request(`${year}/circuits/${circuitId}/results.json`, {
       limit: 100,

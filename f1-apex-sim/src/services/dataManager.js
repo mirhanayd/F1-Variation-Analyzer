@@ -81,7 +81,7 @@ class DataManager {
             return parsed.data;
           }
         }
-      } catch (e) {
+      } catch {
         // ignore localStorage access errors
       }
     }
@@ -94,7 +94,7 @@ class DataManager {
       if (persist) {
         try {
           localStorage.setItem(`pw_cache_${key}`, JSON.stringify(entry));
-        } catch (e) {
+          } catch {
           // ignore quota exceeded or access errors
         }
       }
@@ -119,7 +119,7 @@ class DataManager {
             this.cache.set(key, parsed); // populate memory cache with stale data so we don't parse JSON repeatedly
             return parsed.data;
           }
-        } catch (e) {
+        } catch {
           // ignore
         }
       }
@@ -201,8 +201,17 @@ class DataManager {
   }
 
   async getRaceClassification(year, round, options = {}) {
-    return this.getOrFetch(`race_classification_${year}_${round}`, () => jolpicaApi.getRaceClassification(year, round, options), {
-      cacheTimeout: 10 * 60 * 1000,
+    const { cacheTimeout = 10 * 60 * 1000, ...requestOptions } = options;
+    return this.getOrFetch(`race_classification_${year}_${round}`, () => jolpicaApi.getRaceClassification(year, round, requestOptions), {
+      cacheTimeout,
+      persist: true,
+    });
+  }
+
+  async getQualifyingClassification(year, round, options = {}) {
+    const { cacheTimeout = 30 * 1000, ...requestOptions } = options;
+    return this.getOrFetch(`qualifying_classification_${year}_${round}`, () => jolpicaApi.getQualifyingClassification(year, round, requestOptions), {
+      cacheTimeout,
       persist: true,
     });
   }

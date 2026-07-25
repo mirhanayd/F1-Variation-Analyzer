@@ -3387,8 +3387,10 @@ a {
 /* Mobile responsive standing styles */
 @media (max-width: 768px) {
   /* Hide separate nationality columns in standings */
-  .pw-standings-table th:nth-child(3),
-  .pw-standings-table td:nth-child(3) {
+  .drivers-standings-table th:nth-child(3),
+  .drivers-standings-table td:nth-child(3),
+  .teams-standings-table th:nth-child(3),
+  .teams-standings-table td:nth-child(3) {
     display: none !important;
   }
 
@@ -3942,7 +3944,7 @@ a {
     padding: 8px 10px;
   }
   
-  .col-team {
+  .next-gp-live-standings .col-team {
     display: none;
   }
 
@@ -3995,13 +3997,110 @@ a {
   }
   
   .team-indicator-cell {
-    flex-direction: column;
-    align-items: flex-start !important;
+    flex-direction: row;
+    align-items: center !important;
     gap: 4px !important;
   }
   
   .team-logo-container {
     width: 70px !important;
     height: 24px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .standings-content-area .pw-table-container {
+    overflow-x: hidden;
+  }
+
+  .standings-content-area .pw-standings-table {
+    min-width: 100%;
+    table-layout: fixed;
+  }
+
+  .standings-content-area .pw-standings-table .col-pos {
+    width: 44px;
+  }
+
+  .standings-content-area .pw-standings-table .col-pts {
+    width: 52px;
+  }
+
+  .standings-content-area .pw-standings-table .col-driver {
+    min-width: 0;
+  }
+
+  .drivers-standings-table th:nth-child(4),
+  .drivers-standings-table td:nth-child(4) {
+    width: 88px;
+  }
+
+  .drivers-standings-table .team-indicator-cell {
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+
+  .drivers-standings-table .team-logo-img-small {
+    max-width: 28px;
+    flex: 0 0 auto;
+  }
+
+  .drivers-standings-table .team-indicator-cell > span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .teams-standings-table .col-team {
+    display: table-cell;
+    min-width: 0;
+    width: auto;
+  }
+
+  .teams-standings-table th:nth-child(4),
+  .teams-standings-table td:nth-child(4) {
+    width: 44px;
+    text-align: center;
+  }
+
+  .teams-standings-table .team-indicator-cell {
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+
+  .teams-standings-table .team-logo-container {
+    width: 54px !important;
+    height: 28px !important;
+  }
+
+  .teams-standings-table .team-logo-img {
+    max-height: 22px !important;
+  }
+
+  .teams-standings-table .team-meta-name {
+    min-width: 0;
+  }
+
+  .teams-standings-table .team-meta-name strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .race-classification-table th:nth-child(3),
+  .race-classification-table td:nth-child(3) {
+    display: none;
+  }
+
+  .race-classification-table th:nth-child(4),
+  .race-classification-table td:nth-child(4) {
+    width: 94px;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
