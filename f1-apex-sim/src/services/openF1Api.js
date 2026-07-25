@@ -1,7 +1,8 @@
-import { buildUrl, fetchJson, sleep } from './httpClient';
-import { buildGeometryFromPointArrays } from '../utils/trackGeometry';
+import { sleep } from './httpClient';
+import backendApi from './backendApi';
+import { isGatewayDown, markGatewayDown, markGatewayUp, shouldRecheck } from './gatewayStatus';
 
-const BASE_URL = 'https://api.openf1.org/v1/';
+const OPENF1_DIRECT_URL = 'https://api.openf1.org/v1';
 const OPENF1_FIRST_YEAR = 2023;
 const HISTORICAL_WINDOW_DELAY_MS = 30 * 60 * 1000;
 
@@ -15,9 +16,48 @@ const isHistoricalSession = (session, nowMs = Date.now()) => {
   return Date.parse(session.date_end) + HISTORICAL_WINDOW_DELAY_MS < nowMs;
 };
 
+const directOpenF1Fetch = async (endpoint, params = {}, options = {}) => {
+  const url = new URL(`${OPENF1_DIRECT_URL}/${endpoint}`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
+  });
+
+  const controller = new AbortController();
+  const callerSignal = options.signal;
+  const onCallerAbort = () => controller.abort(callerSignal?.reason);
+  callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
+  const timeout = setTimeout(() => controller.abort('Direct OpenF1 request timed out'), 20_000);
+
+  try {
+    const response = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error(`Direct OpenF1 request failed (${response.status})`);
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+    callerSignal?.removeEventListener('abort', onCallerAbort);
+  }
+};
+
 class OpenF1Service {
-  request(endpoint, params = {}, options = {}) {
-    return fetchJson(buildUrl(BASE_URL, endpoint, params), options);
+  async request(endpoint, params = {}, options = {}) {
+    if (isGatewayDown() && !shouldRecheck()) {
+      return directOpenF1Fetch(endpoint, params, options);
+    }
+
+    try {
+      const data = await backendApi.openF1(endpoint, params, { ...options, timeoutMs: 3_000 });
+      markGatewayUp();
+      return data;
+    } catch (err) {
+      if (err?.name === 'AbortError' || String(err?.message).includes('abort')) throw err;
+
+      console.warn('Gateway unavailable, falling back to direct OpenF1 API:', err?.message);
+      markGatewayDown();
+      return directOpenF1Fetch(endpoint, params, options);
+    }
   }
 
   getMeetings(params = {}, options = {}) {
@@ -43,8 +83,8 @@ class OpenF1Service {
     return this.request('car_data', {
       session_key: sessionKey,
       driver_number: driverNumber,
-      'date>=': dateStart,
-      'date<=': dateEnd,
+      'date>': dateStart,
+      'date<': dateEnd,
     }, options);
   }
 
@@ -52,8 +92,8 @@ class OpenF1Service {
     return this.request('location', {
       session_key: sessionKey,
       driver_number: driverNumber,
-      'date>=': dateStart,
-      'date<=': dateEnd,
+      'date>': dateStart,
+      'date<': dateEnd,
     }, options);
   }
 
@@ -80,19 +120,12 @@ class OpenF1Service {
   }
 
   async getCircuitGeometry(circuitInfoUrl, options = {}) {
-    if (!circuitInfoUrl) return null;
-
-    const data = await fetchJson(circuitInfoUrl, options);
-    if (!Array.isArray(data.x) || !Array.isArray(data.y)) return null;
-
-    return buildGeometryFromPointArrays(data.x, data.y, {
-      source: 'multiviewer',
-      coordinateSpace: 'liveTiming',
-      rotation: data.rotation,
-      corners: data.corners ?? [],
-      marshalLights: data.marshalLights ?? [],
-      marshalSectors: data.marshalSectors ?? [],
-    });
+    // Circuit geometry is canonical GeoJSON bundled with the application.
+    // Keeping this no-op preserves the historical API surface without allowing
+    // the frontend to follow an arbitrary third-party circuit_info_url.
+    void circuitInfoUrl;
+    void options;
+    return null;
   }
 
   async findLatestCompletedRaceSession(openF1Config = {}, options = {}) {

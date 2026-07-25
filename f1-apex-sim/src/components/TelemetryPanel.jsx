@@ -64,6 +64,18 @@ const TelemetryPanel = ({ replay, onLoad, loadRequested = false }) => {
               {' / '}
               {formatReplayClock(replay.durationMs)}
             </div>
+            <label className="replay-speed">
+              <span>Speed</span>
+              <select
+                value={replay.playbackSpeed}
+                onChange={(event) => replay.setPlaybackSpeed(Number(event.target.value))}
+                aria-label="Replay speed"
+              >
+                {[1, 2, 4, 8, 16].map((speed) => (
+                  <option key={speed} value={speed}>{speed}×</option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <input

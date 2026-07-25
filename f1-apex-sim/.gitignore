@@ -12,6 +12,28 @@ dist
 dist-ssr
 *.local
 
+# Environment and credentials
+.env
+.env.*
+!.env.example
+!server/.env.example
+
+# Optional backend-generated replay artifacts
+server/generated-replays/*.json
+!server/generated-replays/.gitkeep
+!server/generated-replays/README.md
+
+# Python caches / virtual environments
+**/__pycache__/
+*.py[cod]
+server/python/.venv/
+server/.fastf1-cache/
+
+# Capacitor/Android generated build output
+android/.gradle/
+android/app/build/
+android/app/src/main/assets/public/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

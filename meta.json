@@ -1,0 +1,25 @@
+{
+  "title": "PITWALL",
+  "slug": "pitwall",
+  "year": "2026",
+  "status": "Completed",
+  "featured": true,
+  "role": "Full-stack Developer",
+  "shortDescription": "PITWALL is a React/Vite/Capacitor Formula 1 companion with a server-owned OpenF1 live gateway, a clearly labelled historical replay fallback, and a canonical real-geometry pipeline for circuits, maps, and simulation.",
+  "technologies": [
+    "React",
+    "Vite",
+    "Capacitor",
+    "Node.js",
+    "OpenF1"
+  ],
+  "githubUrl": "https://github.com/mirhanayd/F1-Variation-Analyzer",
+  "liveUrl": "https://v0-pitwall.vercel.app/",
+  "coverImage": "cover.png",
+  "highlights": [
+    "Server-owned OpenF1 live gateway with secure WebSocket delivery to the frontend.",
+    "Explicit historical replay fallback when no live session is active.",
+    "Canonical circuit geometry pipeline for maps, stylised outlines, and lap markers.",
+    "Capacitor Android packaging for a native mobile build path."
+  ]
+}

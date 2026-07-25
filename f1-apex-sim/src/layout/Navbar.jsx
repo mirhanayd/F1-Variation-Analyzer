@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import SettingsModal from '../components/SettingsModal';
 
 const CalendarIcon = (
   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -38,10 +40,39 @@ const SimulationIcon = (
   </svg>
 );
 
+const LiveIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+    <path d="M8.6 8.6a4.8 4.8 0 0 0 0 6.8m6.8 0a4.8 4.8 0 0 0 0-6.8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M5.4 5.4a9.3 9.3 0 0 0 0 13.2m13.2 0a9.3 9.3 0 0 0 0-13.2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+const StandingsIcon = (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M3.75 18.75h16.5M5.25 18.75v-4.5a1.5 1.5 0 0 1 1.5-1.5h2.25a1.5 1.5 0 0 1 1.5 1.5v4.5M10.5 18.75V8.25a1.5 1.5 0 0 1 1.5-1.5h2.25a1.5 1.5 0 0 1 1.5 1.5v10.5M15.75 18.75v-6.75a1.5 1.5 0 0 1 1.5-1.5h2.25a1.5 1.5 0 0 1 1.5 1.5v6.75" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const SettingsIcon = (
+  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+    <path
+      d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+  </svg>
+);
+
 const navItems = [
   { to: '/', label: 'Schedule', icon: CalendarIcon },
   { to: '/circuits', label: 'Circuits', icon: CircuitIcon },
   { to: '/simulation', label: 'Simulation', icon: SimulationIcon },
+  { to: '/standings', label: 'Standings', icon: StandingsIcon },
 ];
 
 const BrandMark = () => (
@@ -52,45 +83,62 @@ const BrandMark = () => (
   </svg>
 );
 
-const Navbar = () => (
-  <>
-    <header className="pw-navbar">
-      <NavLink to="/" className="pw-brand" aria-label="PITWALL home">
-        <BrandMark />
-        <span className="pw-brand-text">
-          <strong>PITWALL</strong>
-          <small>F1 Race Companion</small>
-        </span>
-      </NavLink>
+const Navbar = () => {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-      <nav className="pw-nav-links" aria-label="Primary navigation">
+  return (
+    <>
+      <header className="pw-navbar">
+        <NavLink to="/" className="pw-brand" aria-label="PITWALL home">
+          <BrandMark />
+          <span className="pw-brand-text">
+            <strong>PITWALL</strong>
+            <small>F1 Race Companion</small>
+          </span>
+        </NavLink>
+
+        <div className="pw-navbar-actions">
+          <nav className="pw-nav-links" aria-label="Primary navigation">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) => `pw-nav-link ${isActive ? 'active' : ''}`}
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <button
+            type="button"
+            className="pw-navbar-settings-btn"
+            onClick={() => setIsSettingsOpen(true)}
+            aria-label="Open settings"
+          >
+            {SettingsIcon}
+          </button>
+        </div>
+      </header>
+
+      <nav className="pw-tabbar" aria-label="Primary navigation">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.to === '/'}
-            className={({ isActive }) => `pw-nav-link ${isActive ? 'active' : ''}`}
+            className={({ isActive }) => `pw-tab ${isActive ? 'active' : ''}`}
           >
-            {item.label}
+            {item.icon}
+            <span>{item.label}</span>
           </NavLink>
         ))}
       </nav>
-    </header>
 
-    <nav className="pw-tabbar" aria-label="Primary navigation">
-      {navItems.map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.to === '/'}
-          className={({ isActive }) => `pw-tab ${isActive ? 'active' : ''}`}
-        >
-          {item.icon}
-          <span>{item.label}</span>
-        </NavLink>
-      ))}
-    </nav>
-  </>
-);
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+    </>
+  );
+};
 
 export default Navbar;
