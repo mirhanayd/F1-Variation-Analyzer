@@ -1,362 +1,297 @@
 import { normalizeCircuitId } from './circuitRegistry';
-import { getCornersForCircuit, hasCuratedCorners, CORNER_TYPE_LABELS } from './cornerLibrary';
 
-// Sector and named-section data per circuit.
-//
-// Every circuit is guaranteed a full structure through getCircuitSections():
-// curated entries below are hand-written from public track guides; anything
-// else receives a clearly-flagged provisional structure (curated: false) that
-// the UI labels as placeholder data. `range` values are fractions of the lap
-// (0–1) so they can drive both 2D sector painting and the 3D simulation HUD.
+// ============================================================
+// Circuit sections & sectors
+// ------------------------------------------------------------
+// Curated sector splits, named corners, straights and DRS zones
+// per circuit. Circuits without a curated entry fall back to a
+// clean generated placeholder structure (clearly marked), so
+// every circuit always exposes sector data and the system is
+// ready for future detailed data.
+// ============================================================
 
-export const SECTOR_COLORS = ['#e10600', '#22d3ee', '#ffd23e'];
+export const SECTOR_COLORS = ['#FF1E46', '#00E5FF', '#FFF01E'];
 
 const CURATED_SECTIONS = {
   istanbul: {
     sectors: [
-      { name: 'Sector 1', range: [0, 0.31], summary: 'Downhill plunge through the T1 “Turkish corkscrew” and the technical T3–T5 loop.' },
-      { name: 'Sector 2', range: [0.31, 0.67], summary: 'The signature sector — flowing into the four-apex Turn 8, flat-out commitment all the way.' },
-      { name: 'Sector 3', range: [0.67, 1], summary: 'Back straight into the heavy T12 braking zone and the tight final complex.' },
+      { name: 'Sector 1', corners: 'T1 – T6', highlight: 'The downhill plunge into Turn 1 and the fast T3–T5 sweeps.' },
+      { name: 'Sector 2', corners: 'T7 – T8', highlight: 'Dominated by Turn 8 — the legendary quadruple-apex left-hander.' },
+      { name: 'Sector 3', corners: 'T9 – T14', highlight: 'Heavy braking into T9, the back straight and the final T12–T14 complex.' },
     ],
-    corners: [
-      { number: 'T1', name: 'Turkish Corkscrew', character: 'Blind downhill left', position: 0.04 },
-      { number: 'T3', name: 'Turn 3', character: 'Uphill hairpin-like right', position: 0.15 },
-      { number: 'T8', name: 'Quadruple Apex', character: 'Legendary four-apex left, ~5g sustained', position: 0.52 },
-      { number: 'T12', name: 'Turn 12', character: 'Hardest braking zone, prime overtaking spot', position: 0.82 },
-      { number: 'T14', name: 'Turn 14', character: 'Final right onto the pit straight', position: 0.95 },
+    namedCorners: [
+      { number: 'T1', name: 'Turn 1', note: 'Downhill off-camber left, a signature overtaking spot' },
+      { number: 'T8', name: 'Turn 8', note: 'Quadruple-apex left taken near-flat, up to 5G sustained' },
+      { number: 'T9', name: 'Turn 9', note: 'Hard braking after the T8 exit' },
+      { number: 'T12', name: 'Turn 12', note: 'Late-braking pass opportunity at the end of the back straight' },
     ],
     straights: [
-      { name: 'Start/Finish Straight', length: '~650 m', note: 'Slightly downhill run to Turn 1.' },
-      { name: 'Back Straight (T10–T12)', length: '~720 m', note: 'Main DRS overtaking run.' },
+      { name: 'Start/Finish straight', detail: '~650 m, DRS zone 1' },
+      { name: 'Back straight (T10 – T12)', detail: '~720 m, DRS zone 2' },
     ],
-    drsZones: [
-      { name: 'DRS Zone 1', zone: 'Back straight between T10 and T12', detection: 'Before Turn 9' },
-      { name: 'DRS Zone 2', zone: 'Start/finish straight', detection: 'Before Turn 14' },
-    ],
+    drsZones: ['Start/finish straight', 'Back straight into Turn 12'],
   },
   monza: {
     sectors: [
-      { name: 'Sector 1', range: [0, 0.3], summary: 'Full-throttle blast into the Rettifilo chicane, then Curva Grande.' },
-      { name: 'Sector 2', range: [0.3, 0.66], summary: 'Roggia chicane and the two Lesmo right-handers.' },
-      { name: 'Sector 3', range: [0.66, 1], summary: 'Ascari chicane and the long Parabolica onto the main straight.' },
+      { name: 'Sector 1', corners: 'T1 – T3', highlight: 'Full-throttle main straight into the Rettifilo chicane and Curva Grande.' },
+      { name: 'Sector 2', corners: 'T4 – T7', highlight: 'Variante della Roggia and the two Lesmo right-handers.' },
+      { name: 'Sector 3', corners: 'T8 – T11', highlight: 'Variante Ascari and the long Parabolica (Curva Alboreto).' },
     ],
-    corners: [
-      { number: 'T1–T2', name: 'Variante del Rettifilo', character: 'Heaviest braking of the season', position: 0.11 },
-      { number: 'T3', name: 'Curva Grande', character: 'Flat-out right sweep', position: 0.2 },
-      { number: 'T4–T5', name: 'Variante della Roggia', character: 'Kerb-riding chicane', position: 0.33 },
-      { number: 'T6–T7', name: 'Lesmo 1 & 2', character: 'Paired medium rights', position: 0.45 },
-      { number: 'T8–T10', name: 'Variante Ascari', character: 'Fast left-right-left', position: 0.7 },
-      { number: 'T11', name: 'Curva Alboreto (Parabolica)', character: 'Long 180° right onto the straight', position: 0.88 },
+    namedCorners: [
+      { number: 'T1–T2', name: 'Variante del Rettifilo', note: 'Heaviest braking event of the lap' },
+      { number: 'T3', name: 'Curva Grande', note: 'Flat-out sweeping right' },
+      { number: 'T4–T5', name: 'Variante della Roggia', note: 'Kerb-riding chicane' },
+      { number: 'T6–T7', name: 'Lesmo 1 & 2', note: 'Linked medium-speed rights' },
+      { number: 'T8–T10', name: 'Variante Ascari', note: 'Fast triple-apex chicane' },
+      { number: 'T11', name: 'Curva Alboreto (Parabolica)', note: 'Long 180° right onto the main straight' },
     ],
     straights: [
-      { name: 'Start/Finish Straight', length: '~1,120 m', note: 'Top speeds beyond 360 km/h.' },
-      { name: 'Back Straight (Serraglio)', length: '~1,090 m', note: 'Between Lesmo 2 and Ascari.' },
+      { name: 'Start/Finish straight', detail: '~1,120 m, DRS zone 2' },
+      { name: 'Back straight (Serraglio)', detail: 'DRS zone 1 into Ascari' },
     ],
-    drsZones: [
-      { name: 'DRS Zone 1', zone: 'Main straight', detection: 'Before Parabolica' },
-      { name: 'DRS Zone 2', zone: 'Between Lesmo 2 and Ascari', detection: 'Before Lesmo 1' },
-    ],
+    drsZones: ['Back straight before Ascari', 'Main straight'],
   },
   silverstone: {
     sectors: [
-      { name: 'Sector 1', range: [0, 0.32], summary: 'Abbey and Farm flat-out, into the Village–Loop complex and the Wellington straight.' },
-      { name: 'Sector 2', range: [0.32, 0.68], summary: 'Brooklands, Luffield, then Copse and the iconic Maggotts–Becketts sweeps.' },
-      { name: 'Sector 3', range: [0.68, 1], summary: 'Hangar Straight, Stowe, and the Vale chicane into Club.' },
+      { name: 'Sector 1', corners: 'T1 – T6', highlight: 'Abbey, Farm and the Village–Loop–Aintree complex onto the Wellington straight.' },
+      { name: 'Sector 2', corners: 'T7 – T9', highlight: 'Brooklands, Luffield and the flat-out Copse.' },
+      { name: 'Sector 3', corners: 'T10 – T18', highlight: 'Maggotts–Becketts–Chapel esses, Hangar straight, Stowe and Club.' },
     ],
-    corners: [
-      { number: 'T1', name: 'Abbey', character: 'Flat-out right kink', position: 0.03 },
-      { number: 'T3–T4', name: 'Village & The Loop', character: 'Slow right-left complex', position: 0.12 },
-      { number: 'T9', name: 'Copse', character: 'Legendary high-speed right', position: 0.48 },
-      { number: 'T10–T13', name: 'Maggotts–Becketts–Chapel', character: 'The best esses in F1', position: 0.55 },
-      { number: 'T15', name: 'Stowe', character: 'Fast right at the end of Hangar Straight', position: 0.75 },
-      { number: 'T16–T17', name: 'Vale & Club', character: 'Final chicane-and-right onto the pit straight', position: 0.9 },
+    namedCorners: [
+      { number: 'T1', name: 'Abbey', note: 'Flat-out right kink' },
+      { number: 'T3–T4', name: 'Village – The Loop', note: 'Slow technical sequence' },
+      { number: 'T9', name: 'Copse', note: 'High-commitment right' },
+      { number: 'T10–T13', name: 'Maggotts – Becketts – Chapel', note: 'Iconic high-speed direction changes' },
+      { number: 'T15', name: 'Stowe', note: 'Fast right at the end of Hangar straight' },
     ],
     straights: [
-      { name: 'Hangar Straight', length: '~875 m', note: 'Between Chapel and Stowe.' },
-      { name: 'Wellington Straight', length: '~770 m', note: 'DRS overtaking into Brooklands.' },
+      { name: 'Wellington straight', detail: '~770 m, DRS zone 1' },
+      { name: 'Hangar straight', detail: '~875 m, DRS zone 2' },
     ],
-    drsZones: [
-      { name: 'DRS Zone 1', zone: 'Wellington Straight', detection: 'Before The Loop' },
-      { name: 'DRS Zone 2', zone: 'Hangar Straight', detection: 'Before Chapel' },
-    ],
+    drsZones: ['Wellington straight', 'Hangar straight'],
   },
   spa: {
     sectors: [
-      { name: 'Sector 1', range: [0, 0.3], summary: 'La Source hairpin, the plunge through Eau Rouge–Raidillon and the Kemmel straight.' },
-      { name: 'Sector 2', range: [0.3, 0.72], summary: 'Les Combes to Pouhon — the fast, sweeping heart of the Ardennes.' },
-      { name: 'Sector 3', range: [0.72, 1], summary: 'Stavelot, flat-out Blanchimont and the Bus Stop chicane.' },
+      { name: 'Sector 1', corners: 'T1 – T7', highlight: 'La Source hairpin, Eau Rouge–Raidillon and the long Kemmel straight.' },
+      { name: 'Sector 2', corners: 'T8 – T14', highlight: 'The fast middle section through Bruxelles, Pouhon and Fagnes.' },
+      { name: 'Sector 3', corners: 'T15 – T19', highlight: 'Blanchimont flat-out and the Bus Stop chicane.' },
     ],
-    corners: [
-      { number: 'T1', name: 'La Source', character: 'Tight opening hairpin', position: 0.02 },
-      { number: 'T3–T5', name: 'Eau Rouge – Raidillon', character: 'The most famous compression in racing', position: 0.08 },
-      { number: 'T7', name: 'Les Combes', character: 'Right-left at the end of Kemmel', position: 0.3 },
-      { number: 'T10', name: 'Pouhon', character: 'Double-apex downhill left', position: 0.48 },
-      { number: 'T15', name: 'Curve Paul Frère', character: 'Fast right leading to Blanchimont', position: 0.72 },
-      { number: 'T18–T19', name: 'Bus Stop', character: 'Final chicane onto the pit straight', position: 0.94 },
-    ],
-    straights: [
-      { name: 'Kemmel Straight', length: '~800 m', note: 'Uphill run after Raidillon — prime overtaking.' },
-      { name: 'Start/Finish Straight', length: '~700 m', note: 'Short blast between Bus Stop and La Source.' },
-    ],
-    drsZones: [
-      { name: 'DRS Zone 1', zone: 'Kemmel Straight', detection: 'Before Raidillon' },
-      { name: 'DRS Zone 2', zone: 'Start/finish straight', detection: 'Before the Bus Stop' },
-    ],
-  },
-  suzuka: {
-    sectors: [
-      { name: 'Sector 1', range: [0, 0.33], summary: 'First corner sweep and the rhythm-critical S Curves up the hill.' },
-      { name: 'Sector 2', range: [0.33, 0.72], summary: 'Dunlop, both Degners, the hairpin and the long approach to Spoon.' },
-      { name: 'Sector 3', range: [0.72, 1], summary: 'Flat-out over the crossover, 130R, and the Casio Triangle chicane.' },
-    ],
-    corners: [
-      { number: 'T1–T2', name: 'First Curve', character: 'Double-apex right taken at speed', position: 0.05 },
-      { number: 'T3–T6', name: 'S Curves (Esses)', character: 'Perfect-rhythm left-right sequence', position: 0.14 },
-      { number: 'T8–T9', name: 'Degner 1 & 2', character: 'Punishing double right', position: 0.35 },
-      { number: 'T11', name: 'Hairpin', character: 'Slowest point of the lap', position: 0.45 },
-      { number: 'T13–T14', name: 'Spoon Curve', character: 'Double-left feeding the back straight', position: 0.6 },
-      { number: 'T15', name: '130R', character: 'Flat-out 130-metre-radius left', position: 0.8 },
-      { number: 'T16–T17', name: 'Casio Triangle', character: 'Final chicane, classic lunge spot', position: 0.92 },
+    namedCorners: [
+      { number: 'T1', name: 'La Source', note: 'First-gear hairpin' },
+      { number: 'T3–T5', name: 'Eau Rouge – Raidillon', note: 'Legendary uphill compression' },
+      { number: 'T10', name: 'Pouhon', note: 'Double-apex fast left' },
+      { number: 'T17', name: 'Blanchimont', note: 'Flat-out left' },
+      { number: 'T18–T19', name: 'Bus Stop chicane', note: 'Final overtaking chance' },
     ],
     straights: [
-      { name: 'Crossover Back Straight', length: '~1,200 m', note: 'From Spoon over the bridge to 130R.' },
-      { name: 'Start/Finish Straight', length: '~600 m', note: 'Downhill into Turn 1.' },
+      { name: 'Kemmel straight', detail: '~800 m, DRS zone 1' },
+      { name: 'Start/Finish straight', detail: 'DRS zone 2' },
     ],
-    drsZones: [
-      { name: 'DRS Zone 1', zone: 'Start/finish straight', detection: 'Before the Casio Triangle' },
-    ],
+    drsZones: ['Kemmel straight', 'Start/finish straight'],
   },
   monaco: {
     sectors: [
-      { name: 'Sector 1', range: [0, 0.33], summary: 'Sainte Dévote and the climb up Beau Rivage to Casino Square.' },
-      { name: 'Sector 2', range: [0.33, 0.7], summary: 'Mirabeau, the Fairmont Hairpin, Portier and the tunnel.' },
-      { name: 'Sector 3', range: [0.7, 1], summary: 'Nouvelle Chicane, Tabac, the Swimming Pool and Rascasse.' },
+      { name: 'Sector 1', corners: 'T1 – T5', highlight: 'Sainte Devote and the uphill run to Casino Square.' },
+      { name: 'Sector 2', corners: 'T6 – T11', highlight: 'The Fairmont hairpin, Portier and the tunnel.' },
+      { name: 'Sector 3', corners: 'T12 – T19', highlight: 'Nouvelle chicane, Piscine and Rascasse.' },
     ],
-    corners: [
-      { number: 'T1', name: 'Sainte Dévote', character: 'Tight right, lap-one flashpoint', position: 0.04 },
-      { number: 'T4', name: 'Casino Square', character: 'Blind crest left-right', position: 0.25 },
-      { number: 'T6', name: 'Fairmont Hairpin', character: 'Slowest corner in F1 (~48 km/h)', position: 0.38 },
-      { number: 'T8', name: 'Portier', character: 'Right-hander into the tunnel', position: 0.45 },
-      { number: 'T10–T11', name: 'Nouvelle Chicane', character: 'Bumpy braking out of the tunnel', position: 0.62 },
-      { number: 'T13–T16', name: 'Piscine (Swimming Pool)', character: 'Fast left-right, walls inches away', position: 0.78 },
-      { number: 'T18', name: 'Rascasse', character: 'Second-gear left around the restaurant', position: 0.9 },
+    namedCorners: [
+      { number: 'T1', name: 'Sainte Devote', note: 'Tight right, wall on exit' },
+      { number: 'T6', name: 'Fairmont Hairpin', note: 'Slowest corner in F1 (~48 km/h)' },
+      { number: 'T13–T16', name: 'Piscine', note: 'Fast swimming-pool chicanes' },
+      { number: 'T18', name: 'Rascasse', note: 'Slow right around the restaurant' },
     ],
     straights: [
-      { name: 'Tunnel Run', length: '~670 m', note: 'The only near-straight — curved, at 280+ km/h in the dark.' },
-      { name: 'Start/Finish Straight', length: '~500 m', note: 'Short pit straight into Sainte Dévote.' },
+      { name: 'Start/Finish straight', detail: 'Short pit straight, DRS zone 1' },
+      { name: 'Tunnel run', detail: 'Fastest point of the lap' },
     ],
-    drsZones: [
-      { name: 'DRS Zone 1', zone: 'Start/finish straight', detection: 'Before Rascasse' },
+    drsZones: ['Start/finish straight'],
+  },
+  suzuka: {
+    sectors: [
+      { name: 'Sector 1', corners: 'T1 – T7', highlight: 'First curve and the famous uphill Esses.' },
+      { name: 'Sector 2', corners: 'T8 – T14', highlight: 'Degner curves, the hairpin and Spoon.' },
+      { name: 'Sector 3', corners: 'T15 – T18', highlight: '130R flat-out and the Casio Triangle chicane.' },
     ],
+    namedCorners: [
+      { number: 'T3–T6', name: 'The Esses', note: 'Rhythmic uphill direction changes' },
+      { number: 'T8–T9', name: 'Degner 1 & 2', note: 'Unforgiving fast rights' },
+      { number: 'T13–T14', name: 'Spoon Curve', note: 'Long double-left onto the back straight' },
+      { number: 'T15', name: '130R', note: 'Flat-out 300+ km/h left' },
+      { number: 'T16–T17', name: 'Casio Triangle', note: 'Final chicane' },
+    ],
+    straights: [
+      { name: 'Back straight (Spoon – 130R)', detail: '~1,200 m' },
+      { name: 'Start/Finish straight', detail: 'DRS zone 1' },
+    ],
+    drsZones: ['Start/finish straight'],
   },
   interlagos: {
     sectors: [
-      { name: 'Sector 1', range: [0, 0.3], summary: 'The Senna S plunge and the sweep of Curva do Sol onto Reta Oposta.' },
-      { name: 'Sector 2', range: [0.3, 0.7], summary: 'Descida do Lago and the twisty infield up to Bico de Pato.' },
-      { name: 'Sector 3', range: [0.7, 1], summary: 'Juncao and the long full-throttle climb across the line.' },
+      { name: 'Sector 1', corners: 'T1 – T5', highlight: 'The downhill Senna S and Curva do Sol.' },
+      { name: 'Sector 2', corners: 'T6 – T11', highlight: 'The twisty infield from Ferradura to Mergulho.' },
+      { name: 'Sector 3', corners: 'T12 – T15', highlight: 'Juncao and the long uphill drag to the line.' },
     ],
-    corners: [
-      { number: 'T1–T2', name: 'Senna S', character: 'Downhill left-right, prime overtaking', position: 0.03 },
-      { number: 'T4', name: 'Descida do Lago', character: 'Fast double-left by the lake', position: 0.3 },
-      { number: 'T8', name: 'Laranjinha', character: 'Slow infield left', position: 0.52 },
-      { number: 'T10', name: 'Bico de Pato', character: 'Duck-bill hairpin right', position: 0.62 },
-      { number: 'T12', name: 'Juncao', character: 'Left that decides the whole climb', position: 0.72 },
+    namedCorners: [
+      { number: 'T1–T2', name: 'Senna S', note: 'Downhill left-right, prime overtaking spot' },
+      { number: 'T4', name: 'Descida do Lago', note: 'Fast double-left' },
+      { number: 'T12', name: 'Juncao', note: 'Critical exit onto the main straight' },
     ],
     straights: [
-      { name: 'Reta Oposta', length: '~660 m', note: 'Back straight after the Senna S.' },
-      { name: 'Subida dos Boxes', length: '~1,000 m flat-out', note: 'The uphill drag from Juncao across the line.' },
+      { name: 'Reta Oposta', detail: '~700 m back straight, DRS zone 1' },
+      { name: 'Start/Finish climb', detail: 'DRS zone 2' },
     ],
-    drsZones: [
-      { name: 'DRS Zone 1', zone: 'Reta Oposta', detection: 'Before the Senna S' },
-      { name: 'DRS Zone 2', zone: 'Start/finish climb', detection: 'Before Juncao' },
-    ],
-  },
-  baku: {
-    sectors: [
-      { name: 'Sector 1', range: [0, 0.3], summary: 'Government House 90-degree corners along the boulevard grid.' },
-      { name: 'Sector 2', range: [0.3, 0.62], summary: 'The narrow uphill castle section — millimetre precision required.' },
-      { name: 'Sector 3', range: [0.62, 1], summary: 'The 2.2 km flat-out blast along the Caspian seafront.' },
-    ],
-    corners: [
-      { number: 'T1', name: 'Turn 1', character: 'Heavy braking left off the main straight', position: 0.04 },
-      { number: 'T3', name: 'Turn 3', character: '90-left, classic lock-up spot', position: 0.12 },
-      { number: 'T8–T10', name: 'Castle Section', character: 'Narrowest stretch in F1 (7.6 m)', position: 0.42 },
-      { number: 'T15', name: 'Turn 15', character: 'Downhill left onto the promenade', position: 0.6 },
-      { number: 'T16–T20', name: 'Seafront Sweeps', character: 'Flat-out kinks building to 340 km/h', position: 0.78 },
-    ],
-    straights: [
-      { name: 'Neftchilar Avenue Straight', length: '~2,200 m', note: 'Longest flat-out stretch on the calendar.' },
-    ],
-    drsZones: [
-      { name: 'DRS Zone 1', zone: 'Main straight', detection: 'Before Turn 20' },
-      { name: 'DRS Zone 2', zone: 'Between Turn 2 and Turn 3', detection: 'Before Turn 1' },
-    ],
+    drsZones: ['Reta Oposta', 'Start/finish straight'],
   },
   americas: {
     sectors: [
-      { name: 'Sector 1', range: [0, 0.32], summary: 'The steep run to the T1 hairpin and the Silverstone-style esses.' },
-      { name: 'Sector 2', range: [0.32, 0.68], summary: 'T11 hairpin and the 1.2 km back straight.' },
-      { name: 'Sector 3', range: [0.68, 1], summary: 'Stadium section and the triple-apex right onto the pit straight.' },
+      { name: 'Sector 1', corners: 'T1 – T10', highlight: 'The steep Turn 1 hairpin and the Silverstone-inspired esses.' },
+      { name: 'Sector 2', corners: 'T11 – T15', highlight: 'The 1.2 km back straight into the Turn 12 braking zone.' },
+      { name: 'Sector 3', corners: 'T16 – T20', highlight: 'The triple-apex right and the stadium section.' },
     ],
-    corners: [
-      { number: 'T1', name: 'Big Red', character: '40 m uphill braking into a blind hairpin', position: 0.04 },
-      { number: 'T3–T6', name: 'The Esses', character: 'Maggotts-Becketts-inspired sweeps', position: 0.14 },
-      { number: 'T11', name: 'Turn 11', character: 'Hairpin onto the back straight', position: 0.42 },
-      { number: 'T12', name: 'Turn 12', character: 'Big stop at the end of the straight', position: 0.6 },
-      { number: 'T16–T18', name: 'Triple Apex', character: 'Istanbul T8-inspired long right', position: 0.8 },
+    namedCorners: [
+      { number: 'T1', name: 'Turn 1', note: '133 ft climb into a blind hairpin' },
+      { number: 'T3–T6', name: 'The Esses', note: 'High-speed direction changes' },
+      { number: 'T11', name: 'Turn 11', note: 'Hairpin onto the back straight' },
+      { number: 'T16–T18', name: 'Triple apex', note: 'Long multi-apex right' },
     ],
     straights: [
-      { name: 'Back Straight (T11–T12)', length: '~1,200 m', note: 'The main overtaking drag.' },
-      { name: 'Start/Finish Straight', length: '~450 m', note: 'Uphill launch toward Turn 1.' },
+      { name: 'Back straight (T11 – T12)', detail: '~1,200 m, DRS zone 1' },
+      { name: 'Start/Finish straight', detail: 'DRS zone 2' },
     ],
-    drsZones: [
-      { name: 'DRS Zone 1', zone: 'Back straight', detection: 'Before Turn 11' },
-      { name: 'DRS Zone 2', zone: 'Start/finish straight', detection: 'Before Turn 19' },
-    ],
+    drsZones: ['Back straight', 'Start/finish straight'],
   },
   bahrain: {
     sectors: [
-      { name: 'Sector 1', range: [0, 0.31], summary: 'Heavy braking into T1 and the run out to the T4 right-hander.' },
-      { name: 'Sector 2', range: [0.31, 0.68], summary: 'The twisty infield: T5–T8 sweeps and the T9–T10 double-apex.' },
-      { name: 'Sector 3', range: [0.68, 1], summary: 'T11 long left, the back straight kink and the final two corners.' },
+      { name: 'Sector 1', corners: 'T1 – T4', highlight: 'Heavy braking into T1 and the fast T2–T3 sweep.' },
+      { name: 'Sector 2', corners: 'T5 – T10', highlight: 'The flowing middle section down to the T9–T10 double-left.' },
+      { name: 'Sector 3', corners: 'T11 – T15', highlight: 'The T11 climb and the final corners back onto the pit straight.' },
     ],
-    corners: [
-      { number: 'T1', name: 'Turn 1', character: 'Signature big-stop right, race-deciding', position: 0.03 },
-      { number: 'T4', name: 'Turn 4', character: 'Wide-entry right, run-off battles', position: 0.22 },
-      { number: 'T9–T10', name: 'Turns 9–10', character: 'Off-camber double-left', position: 0.55 },
-      { number: 'T11', name: 'Turn 11', character: 'Long loaded left onto the back section', position: 0.68 },
-      { number: 'T13', name: 'Turn 13', character: 'Fast right before the final complex', position: 0.82 },
+    namedCorners: [
+      { number: 'T1', name: 'Turn 1', note: 'Primary overtaking zone' },
+      { number: 'T9–T10', name: 'Turn 9–10', note: 'Tricky off-camber double-left' },
+      { number: 'T11', name: 'Turn 11', note: 'Fast uphill left' },
     ],
     straights: [
-      { name: 'Start/Finish Straight', length: '~1,090 m', note: 'Main DRS drag into Turn 1.' },
-      { name: 'Back Straight (T10–T11)', length: '~660 m', note: 'Second overtaking zone.' },
+      { name: 'Start/Finish straight', detail: '~1,090 m, DRS zone 1' },
+      { name: 'Back straight (T10 – T11)', detail: 'DRS zone 2' },
     ],
-    drsZones: [
-      { name: 'DRS Zone 1', zone: 'Main straight', detection: 'Before Turn 14' },
-      { name: 'DRS Zone 2', zone: 'Between T10 and T11', detection: 'Before Turn 10' },
-      { name: 'DRS Zone 3', zone: 'Between T3 and T4', detection: 'Before Turn 3' },
-    ],
+    drsZones: ['Start/finish straight', 'T3–T4 straight', 'T10–T11 straight'],
   },
-  zandvoort: {
+  red_bull_ring: {
     sectors: [
-      { name: 'Sector 1', range: [0, 0.33], summary: 'Tarzan hairpin and the banked Hugenholtz bowl.' },
-      { name: 'Sector 2', range: [0.33, 0.7], summary: 'The dunes rollercoaster through Scheivlak.' },
-      { name: 'Sector 3', range: [0.7, 1], summary: 'The chicane and the 18-degree banked final corner.' },
+      { name: 'Sector 1', corners: 'T1 – T3', highlight: 'The uphill drag to Remus, the biggest overtaking spot.' },
+      { name: 'Sector 2', corners: 'T4 – T6', highlight: 'Schlossgold and the fast downhill sweeps.' },
+      { name: 'Sector 3', corners: 'T7 – T10', highlight: 'Rindt and the final two rights onto the short pit straight.' },
     ],
-    corners: [
-      { number: 'T1', name: 'Tarzanbocht', character: 'Wide banked hairpin, main overtaking spot', position: 0.05 },
-      { number: 'T3', name: 'Hugenholtzbocht', character: '19-degree banked left bowl', position: 0.15 },
-      { number: 'T7', name: 'Scheivlak', character: 'Blind, fast right over the dunes', position: 0.38 },
-      { number: 'T11–T12', name: 'Hans Ernst Chicane', character: 'Slow left-right', position: 0.68 },
-      { number: 'T14', name: 'Arie Luyendykbocht', character: '18-degree banking slingshot onto the straight', position: 0.92 },
+    namedCorners: [
+      { number: 'T1', name: 'Niki Lauda Kurve', note: 'Uphill right' },
+      { number: 'T3', name: 'Remus', note: 'Steep 2nd-gear right, key overtaking zone' },
+      { number: 'T9–T10', name: 'Rindt', note: 'Fast final rights, exit critical' },
     ],
     straights: [
-      { name: 'Start/Finish Straight', length: '~680 m', note: 'DRS opens out of the banked final corner.' },
+      { name: 'Uphill straight (T1 – T3)', detail: 'DRS zone 1' },
+      { name: 'Start/Finish straight', detail: 'DRS zone 2' },
     ],
-    drsZones: [
-      { name: 'DRS Zone 1', zone: 'Main straight', detection: 'Before Turn 13' },
-      { name: 'DRS Zone 2', zone: 'Between T10 and T11', detection: 'Before Turn 10' },
-    ],
-  },
-  jeddah: {
-    sectors: [
-      { name: 'Sector 1', range: [0, 0.33], summary: 'T1–T2 complex and the first high-speed wall-lined esses.' },
-      { name: 'Sector 2', range: [0.33, 0.68], summary: 'The banked T13 left and the flowing corniche switchbacks.' },
-      { name: 'Sector 3', range: [0.68, 1], summary: 'Flat-out kinks and the T27 final hairpin-right onto the pit straight.' },
-    ],
-    corners: [
-      { number: 'T1', name: 'Turn 1', character: 'Tight left, the only real stop in sector 1', position: 0.03 },
-      { number: 'T13', name: 'Turn 13', character: '12-degree banked left', position: 0.42 },
-      { number: 'T22–T23', name: 'Corniche Esses', character: 'Fastest street-circuit sweeps in F1', position: 0.72 },
-      { number: 'T27', name: 'Turn 27', character: 'Last corner, launching the DRS train', position: 0.95 },
-    ],
-    straights: [
-      { name: 'Start/Finish Straight', length: '~830 m', note: 'Pit straight along the lagoon.' },
-      { name: 'Back "Straight" (T25–T27)', length: '~800 m', note: 'Curved full-throttle run.' },
-    ],
-    drsZones: [
-      { name: 'DRS Zone 1', zone: 'Main straight', detection: 'Before Turn 27' },
-      { name: 'DRS Zone 2', zone: 'Between T20 and T22', detection: 'Before Turn 19' },
-      { name: 'DRS Zone 3', zone: 'Between T25 and T27', detection: 'Before Turn 25' },
-    ],
+    drsZones: ['Run to Remus', 'T3–T4 straight', 'Start/finish straight'],
   },
 };
 
-const FALLBACK_SECTOR_SUMMARIES = [
-  'Opening sector — pit straight and the first corner complex.',
-  'Middle sector — the technical heart of the lap.',
-  'Final sector — the run back to the start/finish line.',
-];
+// Rough sector corner split when no curated data exists.
+const splitCornersIntoSectors = (cornerCount) => {
+  if (!Number.isFinite(cornerCount) || cornerCount < 3) {
+    return [
+      { from: null, to: null },
+      { from: null, to: null },
+      { from: null, to: null },
+    ];
+  }
 
-const decorateSectors = (sectors) => sectors.map((sector, index) => ({
-  id: `sector${index + 1}`,
-  label: `SECTOR ${index + 1}`,
-  color: SECTOR_COLORS[index % SECTOR_COLORS.length],
-  ...sector,
-}));
+  const third = Math.round(cornerCount / 3);
+  return [
+    { from: 1, to: third },
+    { from: third + 1, to: third * 2 },
+    { from: third * 2 + 1, to: cornerCount },
+  ];
+};
 
 const buildFallbackSections = (circuit) => {
-  const circuitId = normalizeCircuitId(circuit?.id ?? '');
-  const curatedCorners = hasCuratedCorners(circuitId);
-  const corners = curatedCorners
-    ? getCornersForCircuit(circuitId).map((corner, index, list) => ({
-      number: corner.number,
-      name: corner.name,
-      character: `${CORNER_TYPE_LABELS[corner.type]} · ${corner.direction === 'left' ? 'Left' : 'Right'}`,
-      position: (index + 1) / (list.length + 1),
-    }))
-    : [];
-
-  const drsCount = Number.parseInt(circuit?.stats?.drsZones ?? '', 10);
-  const drsZones = Number.isFinite(drsCount) && drsCount > 0
-    ? Array.from({ length: drsCount }, (_, index) => ({
-      name: `DRS Zone ${index + 1}`,
-      zone: 'Official zone mapping pending',
-      detection: 'TBA',
-    }))
-    : [];
+  const cornerCount = circuit?.stats?.corners;
+  const drsCount = circuit?.stats?.drsZones;
+  const splits = splitCornersIntoSectors(cornerCount);
 
   return {
-    circuitId,
     curated: false,
-    sectors: decorateSectors(
-      FALLBACK_SECTOR_SUMMARIES.map((summary, index) => ({
-        name: `Sector ${index + 1}`,
-        range: [index / 3, (index + 1) / 3],
-        summary,
-      })),
-    ),
-    corners,
+    sectors: splits.map((split, index) => ({
+      name: `Sector ${index + 1}`,
+      corners: split.from ? `T${split.from} – T${split.to}` : 'TBD',
+      highlight: 'Detailed section data is pending for this circuit.',
+    })),
+    namedCorners: [],
     straights: [
-      { name: 'Start/Finish Straight', length: 'TBA', note: 'Detailed section data has not been mapped yet.' },
+      { name: 'Start/Finish straight', detail: 'Primary straight — detailed data pending' },
     ],
-    drsZones,
-    startFinish: { position: 0 },
+    drsZones: Number.isFinite(drsCount) && drsCount > 0
+      ? Array.from({ length: drsCount }, (_, index) => `DRS zone ${index + 1}`)
+      : [],
   };
 };
 
 export const getCircuitSections = (circuit) => {
-  const circuitId = normalizeCircuitId(circuit?.id ?? '');
-  const curated = CURATED_SECTIONS[circuitId];
-  if (!curated) return buildFallbackSections(circuit);
+  const id = normalizeCircuitId(circuit?.id ?? '');
+  const curated = CURATED_SECTIONS[id];
 
-  return {
-    circuitId,
-    curated: true,
-    sectors: decorateSectors(curated.sectors),
-    corners: curated.corners,
-    straights: curated.straights,
-    drsZones: curated.drsZones,
-    startFinish: { position: 0 },
-  };
+  if (curated) {
+    return { curated: true, ...curated };
+  }
+
+  return buildFallbackSections(circuit);
 };
 
-export const hasCuratedSections = (circuitId) => Boolean(CURATED_SECTIONS[normalizeCircuitId(circuitId ?? '')]);
+export const hasCuratedSections = (circuitId) => Boolean(CURATED_SECTIONS[normalizeCircuitId(circuitId)]);
 
-// Sector containing a lap fraction (0–1) — used by the simulation HUD.
-export const getSectorAtProgress = (sections, progress) => {
-  if (!sections?.sectors?.length) return null;
-  const wrapped = ((progress % 1) + 1) % 1;
-  return sections.sectors.find(({ range }) => wrapped >= range[0] && wrapped < range[1])
-    ?? sections.sectors[sections.sectors.length - 1];
+// Sector descriptors for the 2D track canvas: evenly split path ranges with
+// the standard F1 sector colours. Corner counts come from the sections data.
+export const buildCanvasSectors = (circuit) => {
+  const sections = getCircuitSections(circuit);
+
+  return sections.sectors.map((sector, index) => ({
+    id: `sector${index + 1}`,
+    name: sector.name,
+    color: SECTOR_COLORS[index % SECTOR_COLORS.length],
+    label: `SECTOR ${index + 1}`,
+    corners: parseCornerRange(sector.corners),
+    pathRange: {
+      start: index / sections.sectors.length,
+      end: (index + 1) / sections.sectors.length,
+    },
+  }));
+};
+
+const parseCornerRange = (range = '') => {
+  const match = /T(\d+)\s*–\s*T(\d+)/.exec(range);
+  if (!match) return [];
+
+  const from = Number.parseInt(match[1], 10);
+  const to = Number.parseInt(match[2], 10);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return [];
+
+  return Array.from({ length: to - from + 1 }, (_, index) => from + index);
+};
+
+// Evenly distributed corner markers for circuits without surveyed positions.
+export const buildCanvasCorners = (circuit) => {
+  const cornerCount = circuit?.stats?.corners;
+  if (!Number.isFinite(cornerCount) || cornerCount < 1) return [];
+
+  return Array.from({ length: cornerCount }, (_, index) => {
+    const number = index + 1;
+    return {
+      id: number,
+      name: `T${number}`,
+      number: String(number).padStart(2, '0'),
+      trackPosition: (number / cornerCount) * 0.96 + 0.02,
+      approximate: true,
+    };
+  });
 };
