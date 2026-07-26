@@ -4010,20 +4010,28 @@ a {
 
 @media (max-width: 640px) {
   .standings-content-area .pw-table-container {
-    overflow-x: hidden;
+    overflow-x: auto;
   }
 
   .standings-content-area .pw-standings-table {
-    min-width: 100%;
+    min-width: 500px;
     table-layout: fixed;
   }
 
+  .standings-content-area .drivers-standings-table {
+    min-width: 560px;
+  }
+
+  .standings-content-area .teams-standings-table {
+    min-width: 520px;
+  }
+
   .standings-content-area .pw-standings-table .col-pos {
-    width: 44px;
+    width: 50px;
   }
 
   .standings-content-area .pw-standings-table .col-pts {
-    width: 52px;
+    width: 64px;
   }
 
   .standings-content-area .pw-standings-table .col-driver {
@@ -4032,7 +4040,7 @@ a {
 
   .drivers-standings-table th:nth-child(4),
   .drivers-standings-table td:nth-child(4) {
-    width: 88px;
+    width: 116px;
   }
 
   .drivers-standings-table .team-indicator-cell {
@@ -4060,7 +4068,7 @@ a {
 
   .teams-standings-table th:nth-child(4),
   .teams-standings-table td:nth-child(4) {
-    width: 44px;
+    width: 52px;
     text-align: center;
   }
 
@@ -4070,7 +4078,7 @@ a {
   }
 
   .teams-standings-table .team-logo-container {
-    width: 54px !important;
+    width: 64px !important;
     height: 28px !important;
   }
 
@@ -4096,9 +4104,9 @@ a {
 
   .race-classification-table th:nth-child(4),
   .race-classification-table td:nth-child(4) {
-    width: 94px;
-    padding-left: 4px !important;
-    padding-right: 4px !important;
+    width: 112px;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
